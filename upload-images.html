@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Image Upload Tool</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 800px;
+            margin: 2rem auto;
+            padding: 2rem;
+            line-height: 1.6;
+        }
+        .upload-area {
+            border: 2px dashed #ccc;
+            border-radius: 8px;
+            padding: 2rem;
+            text-align: center;
+            margin: 1rem 0;
+            cursor: pointer;
+            transition: border-color 0.3s;
+        }
+        .upload-area:hover {
+            border-color: #007bff;
+        }
+        .upload-area.dragover {
+            border-color: #007bff;
+            background-color: #f8f9fa;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 1rem;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        button:disabled {
+            background: #6c757d;
+            cursor: not-allowed;
+        }
+        .progress {
+            width: 100%;
+            height: 20px;
+            background-color: #e9ecef;
+            border-radius: 10px;
+            overflow: hidden;
+            margin: 1rem 0;
+        }
+        .progress-bar {
+            height: 100%;
+            background-color: #28a745;
+            transition: width 0.3s;
+        }
+        .result {
+            margin: 1rem 0;
+            padding: 1rem;
+            border-radius: 4px;
+        }
+        .success {
+            background-color: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        .error {
+            background-color: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+        .file-list {
+            margin: 1rem 0;
+        }
+        .file-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.5rem;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            margin-bottom: 0.5rem;
+        }
+        .uploaded-paths {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 1rem;
+            margin: 1rem 0;
+            font-family: monospace;
+            font-size: 0.9rem;
+        }
+    </style>
+</head>
+<body>
+    <h1>🖼️ Image Upload Tool for CSV Bulk Upload</h1>
+    <p>Upload your local images first, then use the generated paths in your CSV file.</p>
+    
+    <div class="upload-area" id="uploadArea">
+        <input type="file" id="fileInput" multiple accept="image/*" style="display: none;">
+        <p>📁 Drag and drop images here or click to select files</p>
+        <p style="font-size: 0.9rem; color: #666;">Supported formats: JPG, PNG, WEBP, GIF (Max 5MB each)</p>
+    </div>
+    
+    <div class="file-list" id="fileList" style="display: none;"></div>
+    
+    <button id="uploadBtn" style="display: none;">Upload Images</button>
+    
+    <div class="progress" id="progressContainer" style="display: none;">
+        <div class="progress-bar" id="progressBar" style="width: 0%"></div>
+    </div>
+    
+    <div id="result"></div>
+    
+    <div id="uploadedPaths" style="display: none;">
+        <h3>✅ Uploaded Image Paths (Copy for your CSV):</h3>
+        <div class="uploaded-paths" id="pathsList"></div>
+        <button onclick="copyPaths()">📋 Copy All Paths</button>
+    </div>
+
+    <script>
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+        const fileList = document.getElementById('fileList');
+        const uploadBtn = document.getElementById('uploadBtn');
+        const progressContainer = document.getElementById('progressContainer');
+        const progressBar = document.getElementById('progressBar');
+        const result = document.getElementById('result');
+        const uploadedPaths = document.getElementById('uploadedPaths');
+        const pathsList = document.getElementById('pathsList');
+        
+        let selectedFiles = [];
+        let uploadedImagePaths = [];
+
+        // Click to select files
+        uploadArea.addEventListener('click', () => fileInput.click());
+        
+        // Drag and drop functionality
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+        
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+        
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            const files = Array.from(e.dataTransfer.files);
+            handleFiles(files);
+        });
+        
+        // File input change
+        fileInput.addEventListener('change', (e) => {
+            const files = Array.from(e.target.files);
+            handleFiles(files);
+        });
+        
+        function handleFiles(files) {
+            selectedFiles = files.filter(file => file.type.startsWith('image/'));
+            
+            if (selectedFiles.length === 0) {
+                showResult('Please select valid image files.', 'error');
+                return;
+            }
+            
+            displayFileList();
+            uploadBtn.style.display = 'block';
+        }
+        
+        function displayFileList() {
+            fileList.style.display = 'block';
+            fileList.innerHTML = '<h3>Selected Files:</h3>';
+            
+            selectedFiles.forEach((file, index) => {
+                const fileItem = document.createElement('div');
+                fileItem.className = 'file-item';
+                fileItem.innerHTML = `
+                    <span>${file.name} (${(file.size / 1024 / 1024).toFixed(2)} MB)</span>
+                    <button onclick="removeFile(${index})">❌</button>
+                `;
+                fileList.appendChild(fileItem);
+            });
+        }
+        
+        function removeFile(index) {
+            selectedFiles.splice(index, 1);
+            if (selectedFiles.length === 0) {
+                fileList.style.display = 'none';
+                uploadBtn.style.display = 'none';
+            } else {
+                displayFileList();
+            }
+        }
+        
+        async function uploadImages() {
+            if (selectedFiles.length === 0) return;
+            
+            uploadBtn.disabled = true;
+            progressContainer.style.display = 'block';
+            result.innerHTML = '';
+            
+            try {
+                // Get auth token
+                const token = localStorage.getItem('auth_token');
+                if (!token) {
+                    showResult('❌ Please login to the admin panel first (visit /admin)', 'error');
+                    return;
+                }
+                
+                const formData = new FormData();
+                selectedFiles.forEach(file => {
+                    formData.append('images', file);
+                });
+                formData.append('type', 'products');
+                
+                // Simulate progress
+                let progress = 0;
+                const progressInterval = setInterval(() => {
+                    progress += Math.random() * 20;
+                    progressBar.style.width = Math.min(progress, 90) + '%';
+                }, 200);
+                
+                const response = await fetch('/api/upload/images', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: formData
+                });
+                
+                clearInterval(progressInterval);
+                progressBar.style.width = '100%';
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    uploadedImagePaths = data.images;
+                    showResult(`✅ Successfully uploaded ${data.images.length} images!`, 'success');
+                    showUploadedPaths();
+                } else {
+                    showResult(`❌ Upload failed: ${data.error}`, 'error');
+                }
+                
+            } catch (error) {
+                showResult(`❌ Upload failed: ${error.message}`, 'error');
+            } finally {
+                uploadBtn.disabled = false;
+                setTimeout(() => {
+                    progressContainer.style.display = 'none';
+                    progressBar.style.width = '0%';
+                }, 2000);
+            }
+        }
+        
+        function showResult(message, type) {
+            result.innerHTML = `<div class="result ${type}">${message}</div>`;
+        }
+        
+        function showUploadedPaths() {
+            uploadedPaths.style.display = 'block';
+            pathsList.innerHTML = uploadedImagePaths.map(path => `"${path}"`).join(',<br>');
+        }
+        
+        function copyPaths() {
+            const pathsText = uploadedImagePaths.join(',');
+            navigator.clipboard.writeText(pathsText).then(() => {
+                alert('📋 Paths copied to clipboard!');
+            });
+        }
+        
+        // Upload button click
+        uploadBtn.addEventListener('click', uploadImages);
+    </script>
+</body>
+</html>

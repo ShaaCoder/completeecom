@@ -1,0 +1,35 @@
+{
+  "name": "Whey Protein Isolate - Chocolate Flavor",
+  "slug": "whey-protein-isolate-chocolate-123456",
+  "description": "Premium whey protein isolate designed for rapid absorption and muscle recovery. Delicious chocolate flavor with 27g protein per serving.",
+  "price": 2499,
+  "originalPrice": 2999,
+  "images": [
+    "https://images.pexels.com/photos/1552249/pexels-photo-1552249.jpeg",
+    "https://images.pexels.com/photos/1697432/pexels-photo-1697432.jpeg"
+  ],
+  "category": { "$oid": "68c5c19c8d8e2d0ccea21c92" },
+  "subcategory": "Isolate",
+  "brand": "Optimum Nutrition",
+  "stock": 120,
+  "rating": 4.7,
+  "reviewCount": 238,
+  "tags": ["protein", "whey", "isolate", "chocolate"],
+  "features": [
+    "27g protein per serving",
+    "Low carbs and sugar",
+    "Fast absorption"
+  ],
+  "ingredients": [
+    "Whey Protein Isolate",
+    "Cocoa Powder",
+    "Natural Flavors",
+    "Sucralose"
+  ],
+  "isActive": true,
+  "isFeatured": true,
+  "isNewProduct": true,
+  "isBestseller": true,
+  "createdAt": { "$date": "2025-09-13T12:00:00.000Z" },
+  "updatedAt": { "$date": "2025-09-13T12:00:00.000Z" }
+}
