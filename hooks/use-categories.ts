@@ -11,7 +11,9 @@ export interface Category {
   image?: string;
   subcategories: string[];
   isActive: boolean;
+  isFeatured: boolean;
   productCount?: number;
+  createdAt: string;
 }
 
 interface UseCategoriesReturn {

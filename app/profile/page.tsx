@@ -338,7 +338,7 @@ export default function ProfilePage() {
                     </div>
                     <div>
                       <label className="text-sm font-medium text-gray-700">Phone</label>
-                      <p className="text-gray-900">{currentUser?.phone || user?.phone || 'Not provided'}</p>
+                      <p className="text-gray-900">{String((currentUser && 'phone' in currentUser ? currentUser.phone : '') || user?.phone || 'Not provided')}</p>
                     </div>
                     {session && (
                       <div>

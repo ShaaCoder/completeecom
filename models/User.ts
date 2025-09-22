@@ -203,8 +203,15 @@ UserSchema.pre('save', async function (next) {
 
   try {
     const saltRounds = env.BCRYPT_SALT_ROUNDS;
-    this.password = await bcrypt.hash(this.password, saltRounds);
-    next();
+    if (typeof this.password !== 'string') {
+      return next(new Error('Password must be a string'));
+    }
+    bcrypt.hash(this.password, saltRounds)
+      .then((hashed: string) => {
+        this.password = hashed;
+        next();
+      })
+      .catch((error: Error) => next(error));
   } catch (error) {
     next(error as Error);
   }

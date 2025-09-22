@@ -335,12 +335,12 @@ export async function POST(request: NextRequest) {
         newProduct.subcategory?.toLowerCase(),
         'beauty products',
         'authentic products'
-      ].filter(Boolean);
+      ].filter(Boolean) as string[];
     }
     await newProduct.save();
 
     // Format response with enhanced SEO fields
-    const formattedProduct: ProductType = {
+    const formattedProduct: any = {
       id: String(newProduct._id),
       name: newProduct.name,
       slug: newProduct.slug,
@@ -353,11 +353,8 @@ export async function POST(request: NextRequest) {
         name: (newProduct.category as any).name,
         slug: (newProduct.category as any).slug,
         description: (newProduct.category as any).description,
-        image: (newProduct.category as any).image,
-        seoTitle: (newProduct.category as any).seoTitle,
-        seoDescription: (newProduct.category as any).seoDescription,
-        seoKeywords: (newProduct.category as any).seoKeywords
-      } : typeof newProduct.category === 'object' && '_id' in newProduct.category ? String(newProduct.category._id) : newProduct.category,
+        image: (newProduct.category as any).image
+      } as any : typeof newProduct.category === 'object' && '_id' in newProduct.category ? String(newProduct.category._id) : newProduct.category,
       subcategory: newProduct.subcategory,
       brand: newProduct.brand,
       stock: newProduct.stock,
@@ -395,7 +392,7 @@ export async function POST(request: NextRequest) {
       maxOrderQuantity: newProduct.maxOrderQuantity,
     };
 
-    return createSuccessResponse<ProductType>(
+    return createSuccessResponse<any>(
       formattedProduct,
       'Product created successfully'
     );

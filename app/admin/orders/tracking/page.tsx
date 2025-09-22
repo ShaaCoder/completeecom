@@ -40,6 +40,17 @@ interface TrackingStats {
   avgDeliveryTime: number;
 }
 
+// Helper function to map tracking status to OrderStatusBadge expected types
+const mapTrackingStatusToOrderStatus = (status: string): 'pending' | 'confirmed' | 'shipped' | 'delivered' | 'cancelled' => {
+  const statusLower = status.toLowerCase();
+  if (statusLower.includes('delivered') || statusLower === 'delivered') return 'delivered';
+  if (statusLower.includes('shipped') || statusLower === 'shipped' || 
+      statusLower.includes('transit') || statusLower.includes('out for delivery')) return 'shipped';
+  if (statusLower.includes('confirmed') || statusLower === 'confirmed') return 'confirmed';
+  if (statusLower.includes('cancelled') || statusLower === 'cancelled') return 'cancelled';
+  return 'pending'; // Default fallback
+};
+
 export default function AdminOrderTrackingDashboard() {
   const [selectedTab, setSelectedTab] = useState('overview');
   const [searchTerm, setSearchTerm] = useState('');
@@ -382,7 +393,7 @@ export default function AdminOrderTrackingDashboard() {
                   <CardContent className="space-y-4">
                     <div className="flex items-center justify-between">
                       <span className="text-sm font-medium">Current Status:</span>
-                      <OrderStatusBadge status={tracking.status} />
+                      <OrderStatusBadge status={mapTrackingStatusToOrderStatus(tracking.status)} />
                     </div>
                     {tracking.liveTracking && (
                       <>

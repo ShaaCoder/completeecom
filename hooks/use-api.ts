@@ -14,10 +14,8 @@ export function useApi() {
   const { user, isAuthenticated } = useAuthStore();
 
   useEffect(() => {
-    // Set session token in API client if available
-    if (session?.accessToken) {
-      apiClient.setSessionToken(session.accessToken);
-    }
+    // Session token is handled internally by NextAuth through cookies
+    // No need to manually set session tokens for NextAuth
   }, [session]);
 
   const createCheckoutSession = async (data: {

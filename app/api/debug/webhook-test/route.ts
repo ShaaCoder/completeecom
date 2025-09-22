@@ -70,7 +70,7 @@ export async function POST(request: NextRequest) {
         );
         console.log(`📦 Debug: Stock updated for product ${item.productId}, quantity: -${item.quantity}`);
       } catch (stockError) {
-        console.log(`⚠️  Debug: Could not update stock for ${item.productId}:`, stockError.message);
+        console.log(`⚠️  Debug: Could not update stock for ${item.productId}:`, (stockError as any).message);
       }
     }
     
@@ -88,7 +88,7 @@ export async function POST(request: NextRequest) {
           emailSent: false,
           reason: 'No customer email found',
           order: {
-            id: pendingOrder._id.toString(),
+            id: (pendingOrder._id as any).toString(),
             orderNumber: pendingOrder.orderNumber,
             status: pendingOrder.status,
             paymentStatus: pendingOrder.paymentStatus
@@ -189,7 +189,7 @@ export async function POST(request: NextRequest) {
         emailSent: true,
         messageId: emailResult.messageId,
         order: {
-          id: pendingOrder._id.toString(),
+          id: (pendingOrder._id as any).toString(),
           orderNumber: pendingOrder.orderNumber,
           status: pendingOrder.status,
           paymentStatus: pendingOrder.paymentStatus,
@@ -208,9 +208,9 @@ export async function POST(request: NextRequest) {
       return createSuccessResponse({
         orderUpdated: true,
         emailSent: false,
-        emailError: emailError.message,
+        emailError: (emailError as any).message,
         order: {
-          id: pendingOrder._id.toString(),
+          id: (pendingOrder._id as any).toString(),
           orderNumber: pendingOrder.orderNumber,
           status: pendingOrder.status,
           paymentStatus: pendingOrder.paymentStatus

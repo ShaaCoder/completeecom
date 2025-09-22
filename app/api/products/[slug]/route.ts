@@ -83,7 +83,7 @@ export async function GET(
     });
 
     // Format enhanced product response
-    const formattedProduct: ProductType = {
+    const formattedProduct: any = {
       id: String(product._id),
       name: product.name,
       slug: product.slug,
@@ -96,11 +96,8 @@ export async function GET(
         name: (product.category as any).name,
         slug: (product.category as any).slug,
         description: (product.category as any).description,
-        image: (product.category as any).image,
-        seoTitle: (product.category as any).seoTitle,
-        seoDescription: (product.category as any).seoDescription,
-        seoKeywords: (product.category as any).seoKeywords
-      } : typeof product.category === 'object' && '_id' in product.category ? String(product.category._id) : product.category,
+        image: (product.category as any).image
+      } as any : typeof product.category === 'object' && '_id' in product.category ? String(product.category._id) : product.category,
       subcategory: product.subcategory,
       brand: product.brand,
       stock: product.stock,
@@ -183,7 +180,7 @@ export async function GET(
       }
     };
 
-    return createSuccessResponse<ProductType>(
+    return createSuccessResponse<any>(
       formattedProduct,
       'Product retrieved successfully'
     );

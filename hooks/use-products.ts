@@ -65,9 +65,14 @@ export function useProducts(params: UseProductsParams = {}): UseProductsReturn {
         setProducts(response.data || []);
         // Map pagination response to include totalItems for compatibility
         if (response.pagination) {
+          // Handle different pagination response structures
+          const apiPagination = response.pagination as any;
           setPagination({
-            ...response.pagination,
-            totalItems: response.pagination.totalItems || response.pagination.total || 0
+            page: apiPagination.currentPage || apiPagination.page || 1,
+            limit: apiPagination.itemsPerPage || apiPagination.limit || 24,
+            total: apiPagination.totalItems || apiPagination.total || 0,
+            totalItems: apiPagination.totalItems || apiPagination.total || 0,
+            pages: apiPagination.totalPages || apiPagination.pages || 0
           });
         } else {
           setPagination(null);

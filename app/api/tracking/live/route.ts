@@ -10,9 +10,7 @@ import { NextRequest } from 'next/server';
 import connectDB from '@/lib/mongodb';
 import Order from '@/models/Order';
 import { deliveryPartner } from '@/lib/delivery';
-
-// Store active connections
-const connections = new Map<string, ReadableStreamDefaultController>();
+import { getConnections, getStatusChangeMessage, getConnectionStatus, setConnectionStatus, deleteConnectionStatus } from '@/lib/tracking-utils';
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
@@ -22,6 +20,9 @@ export async function GET(request: NextRequest) {
   if (!orderId && !trackingNumber) {
     return new Response('Order ID or tracking number is required', { status: 400 });
   }
+
+  // Get connections map
+  const connections = getConnections();
 
   // Create SSE stream
   const stream = new ReadableStream({
@@ -44,7 +45,7 @@ export async function GET(request: NextRequest) {
           // Find order
           const order = orderId 
             ? await Order.findById(orderId).lean()
-            : await Order.findOne({ trackingNumber: trackingNumber.toUpperCase() }).lean();
+            : await Order.findOne({ trackingNumber: trackingNumber?.toUpperCase() }).lean();
 
           if (!order) {
             controller.enqueue(`data: ${JSON.stringify({
@@ -67,9 +68,9 @@ export async function GET(request: NextRequest) {
               );
 
               // Check if status has changed
-              const lastKnownStatus = connections.get(`${connectionId}-status`);
+              const lastKnownStatus = getConnectionStatus(`${connectionId}-status`);
               if (liveTracking.status !== lastKnownStatus) {
-                connections.set(`${connectionId}-status`, liveTracking.status);
+                setConnectionStatus(`${connectionId}-status`, liveTracking.status);
                 hasUpdates = true;
               }
             } catch (error) {
@@ -78,13 +79,13 @@ export async function GET(request: NextRequest) {
           }
 
           // Send update if there are changes
-          if (hasUpdates || !connections.get(`${connectionId}-initialized`)) {
-            connections.set(`${connectionId}-initialized`, true);
+          if (hasUpdates || !getConnectionStatus(`${connectionId}-initialized`)) {
+            setConnectionStatus(`${connectionId}-initialized`, 'true');
             
             controller.enqueue(`data: ${JSON.stringify({
               type: 'tracking_update',
               data: {
-                orderId: order._id.toString(),
+                orderId: (order._id as any).toString(),
                 orderNumber: order.orderNumber,
                 status: order.status,
                 trackingNumber: order.trackingNumber,
@@ -101,7 +102,7 @@ export async function GET(request: NextRequest) {
               controller.enqueue(`data: ${JSON.stringify({
                 type: 'status_change',
                 data: {
-                  orderId: order._id.toString(),
+                  orderId: (order._id as any).toString(),
                   orderNumber: order.orderNumber,
                   newStatus: liveTracking.status,
                   location: liveTracking.currentLocation,
@@ -132,8 +133,8 @@ export async function GET(request: NextRequest) {
       const cleanup = () => {
         clearInterval(interval);
         connections.delete(connectionId);
-        connections.delete(`${connectionId}-status`);
-        connections.delete(`${connectionId}-initialized`);
+        deleteConnectionStatus(`${connectionId}-status`);
+        deleteConnectionStatus(`${connectionId}-initialized`);
       };
 
       // Handle connection close
@@ -156,34 +157,3 @@ export async function GET(request: NextRequest) {
   });
 }
 
-// Helper function to get status change message
-function getStatusChangeMessage(status: string, location?: string): string {
-  const messages: Record<string, string> = {
-    'Order Placed': 'Your order has been placed successfully',
-    'Picked Up': `Package has been picked up${location ? ` from ${location}` : ''}`,
-    'In Transit': `Your package is in transit${location ? ` and currently at ${location}` : ''}`,
-    'Out for Delivery': `Your package is out for delivery${location ? ` from ${location}` : ''}`,
-    'Delivered': `Your package has been delivered${location ? ` at ${location}` : ''}`,
-    'Exception': `There's an update about your delivery${location ? ` at ${location}` : ''}`
-  };
-
-  return messages[status] || `Order status updated: ${status}${location ? ` at ${location}` : ''}`;
-}
-
-// Broadcast update to all connections for a specific order
-export function broadcastOrderUpdate(orderId: string, update: any) {
-  connections.forEach((controller, connectionId) => {
-    if (connectionId.startsWith(orderId)) {
-      try {
-        controller.enqueue(`data: ${JSON.stringify({
-          type: 'order_update',
-          data: update,
-          timestamp: new Date().toISOString()
-        })}\n\n`);
-      } catch (error) {
-        console.error('Failed to broadcast update:', error);
-        connections.delete(connectionId);
-      }
-    }
-  });
-}

@@ -89,7 +89,7 @@ export async function POST(
           }
 
           emailSent = await emailService.sendOrderConfirmation({
-            orderId: order._id.toString(),
+            orderId: (order._id as any).toString(),
             orderNumber: order.orderNumber,
             orderDate: order.createdAt.toISOString(),
             customerEmail: customer.email,
@@ -135,7 +135,7 @@ export async function POST(
           }
 
           emailSent = await emailService.sendOrderShipped({
-            orderId: order._id.toString(),
+            orderId: (order._id as any).toString(),
             orderNumber: order.orderNumber,
             orderDate: order.createdAt.toISOString(),
             customerEmail: customer.email,
@@ -174,7 +174,7 @@ export async function POST(
 
       if (emailSent) {
         return createSuccessResponse({
-          orderId: order._id.toString(),
+          orderId: (order._id as any).toString(),
           orderNumber: order.orderNumber,
           emailType,
           customerEmail: customer.email,

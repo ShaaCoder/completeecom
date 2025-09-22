@@ -25,11 +25,11 @@ export function useBrands(): UseBrandsReturn {
       
       if (response.success && response.data) {
         // Extract unique brands from products
-        const uniqueBrands = [...new Set(
+        const uniqueBrands = Array.from(new Set(
           response.data
             .map((product: any) => product.brand)
             .filter((brand: string) => brand && brand.trim() !== '')
-        )].sort();
+        )).sort();
         
         setBrands(uniqueBrands);
       } else {

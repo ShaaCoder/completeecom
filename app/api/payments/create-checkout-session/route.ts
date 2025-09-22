@@ -148,6 +148,9 @@ export async function POST(request: NextRequest) {
     // Process valid items
     for (const item of validItems) {
       const product = await Product.findById(item.productId); // We know this exists from validation above
+      if (!product) {
+        throw new Error(`Product ${item.productId} not found`);
+      }
 
       const itemTotal = product.price * item.quantity;
       subtotal += itemTotal;

@@ -88,7 +88,7 @@ export async function POST(request: NextRequest) {
             console.log(`📬 Attempting to send confirmation email to ${customer.email}`);
             
             const emailSent = await emailService.sendOrderConfirmation({
-              orderId: order._id.toString(),
+              orderId: (order._id as any).toString(),
               orderNumber: order.orderNumber,
               orderDate: order.createdAt.toISOString(),
               customerEmail: customer.email,
@@ -128,7 +128,7 @@ export async function POST(request: NextRequest) {
           }
         } catch (emailError) {
           console.error('❌ Error sending confirmation email:', emailError);
-          console.error('Email error stack:', emailError.stack);
+          console.error('Email error stack:', (emailError as any).stack);
           // Don't fail the payment verification if email fails
         }
 

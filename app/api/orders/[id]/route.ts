@@ -172,8 +172,8 @@ export async function PATCH(
               </div>
             `).join('');
             
-            htmlTemplate = htmlTemplate.replace(/{{#each items}}.*?{{\/each}}/gs, itemsHtml);
-            htmlTemplate = htmlTemplate.replace(/{{#if discount}}.*?{{\/if}}/gs, order.discount > 0 ? `<div class="total-row"><span>Discount:</span><span>-₹${order.discount.toFixed(2)}</span></div>` : '');
+            htmlTemplate = htmlTemplate.replace(/{{#each items}}[\s\S]*?{{\/each}}/g, itemsHtml);
+            htmlTemplate = htmlTemplate.replace(/{{#if discount}}[\s\S]*?{{\/if}}/g, order.discount > 0 ? `<div class="total-row"><span>Discount:</span><span>-₹${order.discount.toFixed(2)}</span></div>` : '');
             
             // Send email
             const mailOptions = {

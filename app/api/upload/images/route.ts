@@ -52,7 +52,7 @@ export async function POST(request: NextRequest) {
       const bytes = await file.arrayBuffer();
       const buffer = Buffer.from(bytes);
       
-      await writeFile(filePath, buffer);
+      await writeFile(filePath, new Uint8Array(buffer));
       
       // Store relative path for database/frontend use
       const relativePath = `uploads/${uploadType}/${uniqueFileName}`;

@@ -49,7 +49,7 @@ export async function POST(request: NextRequest) {
 
     // Send order confirmation email (regardless of payment status for debugging)
     const emailSent = await emailService.sendOrderConfirmation({
-      orderId: order._id.toString(),
+      orderId: (order._id as any).toString(),
       orderNumber: order.orderNumber,
       orderDate: order.createdAt.toISOString(),
       customerEmail: customer.email,

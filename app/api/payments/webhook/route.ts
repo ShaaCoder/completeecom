@@ -76,7 +76,7 @@ async function sendOrderConfirmationEmail(order: any) {
       .replace(/{{unsubscribeUrl}}/g, `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/unsubscribe`);
     
     // Handle items
-    const itemsHtml = order.items.map(item => `
+    const itemsHtml = order.items.map((item: any) => `
       <div class="order-item">
         <img src="${item.image}" alt="${item.name}" class="item-image">
         <div class="item-details">

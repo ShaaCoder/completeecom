@@ -497,8 +497,8 @@ class DeliveryPartner {
           shipmentId: data.shipment_id?.toString() || data.order_id?.toString() || 'unknown',
           awbNumber: data.awb_code || data.airwaybill_number || null,
           trackingUrl: data.awb_code ? `https://shiprocket.co/tracking/${data.awb_code}` : `https://shiprocket.co/tracking/order/${data.order_id}`,
-          estimatedDelivery: null, // Will be available after courier assignment
-          shippingCost: null, // Will be calculated by Shiprocket
+          estimatedDelivery: undefined, // Will be available after courier assignment
+          shippingCost: undefined, // Will be calculated by Shiprocket
           providerResponse: data,
         };
       } else {

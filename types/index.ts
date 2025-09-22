@@ -127,6 +127,8 @@ export interface Order {
   status: 'pending' | 'confirmed' | 'shipped' | 'delivered' | 'cancelled';
   paymentStatus: 'pending' | 'completed' | 'failed';
   shippingAddress: Address;
+  trackingNumber?: string;
+  carrier?: string;
   createdAt: string;
   updatedAt: string;
 }

@@ -380,8 +380,8 @@ export function OrderStatusManager({
                           <div className="flex justify-between">
                             <span>Payment:</span>
                             <span className="font-medium">
-                              {(updateData.paymentStatus || selectedOrder.paymentStatus).charAt(0).toUpperCase() + 
-                               (updateData.paymentStatus || selectedOrder.paymentStatus).slice(1)}
+                              {((updateData.paymentStatus || selectedOrder.paymentStatus) || '').charAt(0).toUpperCase() + 
+                               ((updateData.paymentStatus || selectedOrder.paymentStatus) || '').slice(1)}
                             </span>
                           </div>
                         )}

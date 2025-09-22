@@ -415,7 +415,7 @@ ${this.generateRecommendations(metrics)}
     );
     
     // Reset suspicious IP counters for IPs with no recent activity
-    for (const [ip, _] of this.suspiciousIPs.entries()) {
+    for (const [ip, _] of Array.from(this.suspiciousIPs.entries())) {
       const recentActivity = this.events.some(
         event => event.ip === ip && new Date(event.timestamp) > oneDayAgo
       );

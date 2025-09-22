@@ -955,7 +955,7 @@ export function EnhancedProductForm({
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Tags</label>
                   <div className="flex flex-wrap gap-2 mb-2">
-                    {formData.tags.map((tag, index) => (
+                    {(formData.tags || []).map((tag, index) => (
                       <Badge key={index} variant="secondary" className="text-xs">
                         {tag}
                         <button
@@ -983,7 +983,7 @@ export function EnhancedProductForm({
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Features</label>
                   <div className="flex flex-wrap gap-2 mb-2">
-                    {formData.features.map((feature, index) => (
+                    {(formData.features || []).map((feature, index) => (
                       <Badge key={index} variant="secondary" className="text-xs">
                         {feature}
                         <button

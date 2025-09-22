@@ -64,7 +64,7 @@ export function CategoryFilter({ category, filters, onFiltersChange }: CategoryF
 
   // Get subcategories from actual products in this category
   const dynamicSubcategories = categoryProducts.length > 0 
-    ? [...new Set(categoryProducts.map(p => p.subcategory))].filter(Boolean).sort()
+    ? Array.from(new Set(categoryProducts.map(p => p.subcategory))).filter(Boolean).sort()
     : [];
   
   // Use dynamic subcategories if available, otherwise use fallback based on category name
@@ -74,7 +74,7 @@ export function CategoryFilter({ category, filters, onFiltersChange }: CategoryF
   
   // Filter brands to show only those available in this category
   const categoryBrands = categoryProducts.length > 0 
-    ? [...new Set(categoryProducts.map(p => p.brand))].filter(Boolean).sort()
+    ? Array.from(new Set(categoryProducts.map(p => p.brand))).filter(Boolean).sort()
     : brands;
 
   const clearFilters = () => {

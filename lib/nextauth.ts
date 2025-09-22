@@ -88,8 +88,7 @@ export const authOptions: NextAuthOptions = {
     maxAge: 7 * 24 * 60 * 60, // 7 days
   },
 
-  // Allow account linking
-  allowDangerousEmailAccountLinking: true,
+  // Account linking is handled in the callbacks
 
   jwt: {
     maxAge: 7 * 24 * 60 * 60, // 7 days

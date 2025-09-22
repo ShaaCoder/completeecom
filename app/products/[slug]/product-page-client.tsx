@@ -25,8 +25,8 @@ interface Product {
   stock: number;
   rating: number;
   reviewCount: number;
-  tags?: string[];
-  features?: string[];
+  tags: string[];
+  features: string[];
   ingredients?: string[];
   isNew: boolean;
   isBestseller: boolean;

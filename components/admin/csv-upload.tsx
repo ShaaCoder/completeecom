@@ -58,7 +58,7 @@ export function CSVUpload({ onSuccess, onError, className = '' }: CSVUploadProps
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Helper function to get authorization headers
-  const getAuthHeaders = () => {
+  const getAuthHeaders = (): HeadersInit => {
     const token = typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null;
     return token ? { Authorization: `Bearer ${token}` } : {};
   };

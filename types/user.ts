@@ -32,7 +32,7 @@ export interface IUser {
   passwordResetExpires?: Date;
   emailVerificationToken?: string;
   emailVerificationExpires?: Date;
-  oauthProvider?: 'google' | null;
+  oauthProvider?: 'google' | 'next-auth' | null;
   oauthId?: string;
   avatar?: string;
   createdAt: Date;
@@ -83,12 +83,13 @@ export interface UserResponse {
   username: string; // Added to match schema
   email: string;
   phone?: string;
+  image?: string; // Added for NextAuth compatibility
   addresses: IAddress[]; // Updated to use IAddress
   role: 'customer' | 'admin';
   isActive: boolean;
   isEmailVerified: boolean;
   lastLoginAt?: string;
-  oauthProvider?: 'google' | null;
+  oauthProvider?: 'google' | 'next-auth' | null; // Updated to allow next-auth
   oauthId?: string;
   avatar?: string;
   createdAt: string;

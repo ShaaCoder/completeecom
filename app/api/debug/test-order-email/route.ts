@@ -43,7 +43,7 @@ export async function POST(request: NextRequest) {
         console.log('🐛 Debug: Customer:', { name: customer.name, email: customer.email });
 
         const emailSent = await emailService.sendOrderConfirmation({
-          orderId: order._id.toString(),
+          orderId: (order._id as any).toString(),
           orderNumber: order.orderNumber,
           orderDate: order.createdAt.toISOString(),
           customerEmail: customer.email,

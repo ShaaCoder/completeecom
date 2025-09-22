@@ -24,7 +24,7 @@ function rateLimit(key: string, maxRequests: number, windowMs: number): { allowe
   const windowStart = now - windowMs;
   
   // Clean old entries
-  for (const [rateLimitKey, data] of rateLimitMap.entries()) {
+  for (const [rateLimitKey, data] of Array.from(rateLimitMap.entries())) {
     if (data.resetTime < now) {
       rateLimitMap.delete(rateLimitKey);
     }
@@ -71,8 +71,8 @@ export function middleware(request: NextRequest) {
     const rateLimitKey = `api_${clientIP}`;
     const { allowed, remaining } = rateLimit(
       rateLimitKey, 
-      env.RATE_LIMIT_MAX_REQUESTS, 
-      env.RATE_LIMIT_WINDOW_MS
+      env.RATE_LIMIT_MAX_REQUESTS || 100, 
+      env.RATE_LIMIT_WINDOW_MS || 900000
     );
     
     if (!allowed) {
@@ -80,18 +80,18 @@ export function middleware(request: NextRequest) {
         status: 429,
         headers: {
           'Content-Type': 'application/json',
-          'Retry-After': Math.ceil(env.RATE_LIMIT_WINDOW_MS / 1000).toString(),
-          'X-RateLimit-Limit': env.RATE_LIMIT_MAX_REQUESTS.toString(),
+          'Retry-After': Math.ceil((env.RATE_LIMIT_WINDOW_MS || 900000) / 1000).toString(),
+          'X-RateLimit-Limit': (env.RATE_LIMIT_MAX_REQUESTS || 100).toString(),
           'X-RateLimit-Remaining': '0',
-          'X-RateLimit-Reset': new Date(Date.now() + env.RATE_LIMIT_WINDOW_MS).toISOString(),
+          'X-RateLimit-Reset': new Date(Date.now() + (env.RATE_LIMIT_WINDOW_MS || 900000)).toISOString(),
         },
       });
     }
     
     // Add rate limit headers
-    response.headers.set('X-RateLimit-Limit', env.RATE_LIMIT_MAX_REQUESTS.toString());
+    response.headers.set('X-RateLimit-Limit', (env.RATE_LIMIT_MAX_REQUESTS || 100).toString());
     response.headers.set('X-RateLimit-Remaining', remaining.toString());
-    response.headers.set('X-RateLimit-Reset', new Date(Date.now() + env.RATE_LIMIT_WINDOW_MS).toISOString());
+    response.headers.set('X-RateLimit-Reset', new Date(Date.now() + (env.RATE_LIMIT_WINDOW_MS || 900000)).toISOString());
     
     // Enhanced CORS for API routes
     const origin = request.headers.get('origin');
@@ -129,14 +129,14 @@ export function middleware(request: NextRequest) {
   if (pathname.startsWith('/admin')) {
     // Additional rate limiting for admin routes
     const adminRateLimitKey = `admin_${clientIP}`;
-    const { allowed } = rateLimit(adminRateLimitKey, 50, env.RATE_LIMIT_WINDOW_MS); // Stricter limits
+    const { allowed } = rateLimit(adminRateLimitKey, 50, env.RATE_LIMIT_WINDOW_MS || 900000); // Stricter limits
     
     if (!allowed) {
       return new NextResponse('Admin rate limit exceeded', {
         status: 429,
         headers: {
           'Content-Type': 'text/html',
-          'Retry-After': Math.ceil(env.RATE_LIMIT_WINDOW_MS / 1000).toString(),
+          'Retry-After': Math.ceil((env.RATE_LIMIT_WINDOW_MS || 900000) / 1000).toString(),
         },
       });
     }
@@ -150,14 +150,14 @@ export function middleware(request: NextRequest) {
   // File upload routes security
   if (pathname.startsWith('/api/upload')) {
     const uploadRateLimitKey = `upload_${clientIP}`;
-    const { allowed } = rateLimit(uploadRateLimitKey, 20, env.RATE_LIMIT_WINDOW_MS); // Stricter limits for uploads
+    const { allowed } = rateLimit(uploadRateLimitKey, 20, env.RATE_LIMIT_WINDOW_MS || 900000); // Stricter limits for uploads
     
     if (!allowed) {
       return new NextResponse('Upload rate limit exceeded', {
         status: 429,
         headers: {
           'Content-Type': 'application/json',
-          'Retry-After': Math.ceil(env.RATE_LIMIT_WINDOW_MS / 1000).toString(),
+          'Retry-After': Math.ceil((env.RATE_LIMIT_WINDOW_MS || 900000) / 1000).toString(),
         },
       });
     }

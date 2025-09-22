@@ -57,7 +57,7 @@ export interface OrderEmailData {
 }
 
 class EmailService {
-  private transporter: nodemailer.Transporter;
+  private transporter!: nodemailer.Transporter;
   private isConfigured: boolean = false;
 
   constructor() {
@@ -75,7 +75,7 @@ class EmailService {
       
       validateEmailConfig();
       
-      this.transporter = nodemailer.createTransporter({
+      this.transporter = nodemailer.createTransport({
         host: emailConfig.smtp.host,
         port: emailConfig.smtp.port,
         secure: emailConfig.smtp.secure,
@@ -123,7 +123,7 @@ class EmailService {
     } catch (error) {
       console.error('❌ EmailService: Failed to compile template:', error);
       console.error('❌ EmailService: Template data:', JSON.stringify(data, null, 2));
-      throw new Error('Failed to compile email template: ' + error.message);
+      throw new Error('Failed to compile email template: ' + (error instanceof Error ? error.message : String(error)));
     }
   }
 
@@ -162,9 +162,9 @@ class EmailService {
     } catch (error) {
       console.error('❌ Failed to send email:', error);
       console.error('❌ Email error details:', {
-        message: error.message,
-        code: error.code,
-        command: error.command
+        message: error instanceof Error ? error.message : String(error),
+        code: error instanceof Error && 'code' in error ? error.code : undefined,
+        command: error instanceof Error && 'command' in error ? error.command : undefined
       });
       return false;
     }

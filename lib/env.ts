@@ -73,13 +73,10 @@ export const env = cleanEnv(process.env, {
   // Security Configuration
   RATE_LIMIT_MAX_REQUESTS: num({ 
     default: 100,
-    min: 10,
-    max: 1000,
     desc: 'Maximum requests per window for rate limiting'
   }),
   RATE_LIMIT_WINDOW_MS: num({ 
     default: 900000, // 15 minutes
-    min: 60000, // 1 minute
     desc: 'Rate limiting window in milliseconds'
   }),
   ENABLE_SECURITY_HEADERS: bool({ 
@@ -94,8 +91,6 @@ export const env = cleanEnv(process.env, {
   // File Upload Configuration
   MAX_FILE_SIZE: num({ 
     default: 5242880, // 5MB
-    min: 1048576, // 1MB
-    max: 52428800, // 50MB
     desc: 'Maximum file size in bytes for uploads'
   }),
   ALLOWED_FILE_TYPES: str({ 
