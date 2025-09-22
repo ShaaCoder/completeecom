@@ -218,7 +218,7 @@ export async function authenticateUser(request: NextRequest): Promise<{
   try {
     await connectDB();
 
-    // NextAuth session authentication only
+    // Try NextAuth session first
     try {
       const { getServerSession } = await import('next-auth');
       const { authOptions } = await import('@/lib/nextauth');
@@ -226,6 +226,7 @@ export async function authenticateUser(request: NextRequest): Promise<{
       const session = await getServerSession(authOptions);
       
       if (session && session.user) {
+        console.log('🔑 NextAuth session found for:', session.user.email);
         // Prefer id if present, else fall back to email
         const query: any = (session.user as any).id
           ? { _id: (session.user as any).id }
@@ -234,15 +235,40 @@ export async function authenticateUser(request: NextRequest): Promise<{
         if (user && user.isActive) {
           return { user, error: null };
         }
+        console.warn('⚠️ NextAuth session user not found or inactive:', session.user.email);
         return { user: null, error: 'User not found or inactive' };
       }
     } catch (nextAuthError) {
-      console.log('NextAuth session check failed:', nextAuthError);
+      console.log('⚠️ NextAuth session check failed:', nextAuthError);
     }
 
+    // Try JWT token authentication as fallback
+    try {
+      const authHeader = request.headers.get('authorization');
+      const token = authHeader?.startsWith('Bearer ') 
+        ? authHeader.substring(7)
+        : request.cookies.get('token')?.value;
+
+      if (token) {
+        console.log('🔑 JWT token found, verifying...');
+        const decoded = jwt.verify(token, process.env.JWT_SECRET!) as any;
+        
+        const user = await User.findById(decoded.userId).select('-password');
+        if (user && user.isActive) {
+          console.log('✅ JWT token valid for:', user.email);
+          return { user, error: null };
+        }
+        console.warn('⚠️ JWT token user not found or inactive:', decoded.userId);
+        return { user: null, error: 'User not found or inactive' };
+      }
+    } catch (jwtError) {
+      console.log('⚠️ JWT token verification failed:', jwtError);
+    }
+
+    console.log('❌ No valid authentication found');
     return { user: null, error: 'Authentication required' };
   } catch (error) {
-    console.error('Authentication error:', error);
+    console.error('❌ Authentication error:', error);
     return { user: null, error: 'Authentication error' };
   }
 }

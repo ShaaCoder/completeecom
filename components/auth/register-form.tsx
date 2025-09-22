@@ -34,9 +34,11 @@ export function RegisterForm() {
     }
     if (!formData.password || formData.password.length < 8) {
       newErrors.password = 'Password must be at least 8 characters';
+    } else if (!/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(formData.password)) {
+      newErrors.password = 'Password must contain at least one uppercase letter, one lowercase letter, and one number';
     }
-    if (formData.phone && !/^\+?\d{10,15}$/.test(formData.phone)) {
-      newErrors.phone = 'Please enter a valid phone number';
+    if (formData.phone && formData.phone.trim() !== '' && !/^[6-9]\d{9}$/.test(formData.phone)) {
+      newErrors.phone = 'Please enter a valid 10-digit Indian phone number starting with 6-9';
     }
 
     setErrors(newErrors);
@@ -49,11 +51,28 @@ export function RegisterForm() {
     if (!validateForm()) return;
 
     try {
-      await register(formData);
+      // Filter out empty phone number
+      const registrationData = {
+        ...formData,
+        phone: formData.phone?.trim() || undefined
+      };
+      
+      await register(registrationData);
       toast.success('Registration successful!');
       router.replace('/profile');
     } catch (err: any) {
-      toast.error(err.message || 'Registration failed');
+      // Handle specific error cases
+      if (err.message.includes('already exists')) {
+        if (err.message.includes('email')) {
+          setErrors({ email: 'User with this email already exists' });
+        } else if (err.message.includes('username')) {
+          setErrors({ username: 'User with this username already exists' });
+        }
+      } else if (err.message.includes('validation')) {
+        toast.error('Please check your input and try again');
+      } else {
+        toast.error(err.message || 'Registration failed');
+      }
     }
   };
 
@@ -117,6 +136,7 @@ export function RegisterForm() {
         <Input
           id="phone"
           type="tel"
+          placeholder="9876543210"
           value={formData.phone}
           onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
           aria-invalid={!!errors.phone}

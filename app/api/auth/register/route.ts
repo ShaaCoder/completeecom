@@ -84,6 +84,13 @@ export async function POST(request: NextRequest) {
       isEmailVerified: typeof userData.isEmailVerified === 'boolean' ? userData.isEmailVerified : false,
       tokenVersion: 0,
     });
+    
+    console.log('Creating user with data:', {
+      email: userData.email.toLowerCase(),
+      username: userData.username.toLowerCase(),
+      hasPassword: !!userData.password,
+      phone: userData.phone || 'none'
+    });
 
     await newUser.save();
 

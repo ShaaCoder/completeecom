@@ -16,10 +16,28 @@ export function LoginForm() {
     email: '',
     password: '',
   });
+  const [errors, setErrors] = useState<{ [key: string]: string }>({});
   const [submitting, setSubmitting] = useState(false);
+
+  const validateForm = () => {
+    const newErrors: { [key: string]: string } = {};
+
+    if (!formData.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+      newErrors.email = 'Please enter a valid email address';
+    }
+    if (!formData.password || formData.password.length < 1) {
+      newErrors.password = 'Password is required';
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setErrors({});
+    
+    if (!validateForm()) return;
     
     try {
       setSubmitting(true);
@@ -29,7 +47,15 @@ export function LoginForm() {
       const destination = (role === 'admin') ? '/admin' : '/profile';
       router.replace(destination);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Login failed');
+      if (error instanceof Error) {
+        if (error.message.includes('CredentialsSignin') || error.message.includes('Invalid')) {
+          setErrors({ email: 'Invalid email or password' });
+        } else {
+          toast.error(error.message);
+        }
+      } else {
+        toast.error('Login failed');
+      }
     } finally {
       setSubmitting(false);
     }
@@ -44,17 +70,40 @@ export function LoginForm() {
       });
       
       if (result?.error) {
-        toast.error('Google sign-in failed');
+        console.error('Google sign-in error:', result.error);
+        if (result.error === 'OAuthAccountNotLinked') {
+          toast.error('This email is already registered. Please sign in with your password.');
+        } else if (result.error === 'AccessDenied') {
+          toast.error('Access denied. Please try again.');
+        } else {
+          toast.error('Google sign-in failed. Please try again.');
+        }
       } else if (result?.ok || result?.url) {
-        // Success! Redirect to profile
+        // Success! Wait for the session and user data to be synced
         toast.success('Google sign-in successful!');
+        
+        // Wait for the session to be established and user data synced
+        let attempts = 0;
+        const maxAttempts = 10;
+        while (attempts < maxAttempts) {
+          await new Promise(resolve => setTimeout(resolve, 500));
+          const currentUser = useAuthStore.getState().user;
+          if (currentUser && currentUser.email) {
+            const destination = currentUser.role === 'admin' ? '/admin' : '/profile';
+            router.push(destination);
+            return;
+          }
+          attempts++;
+        }
+        
+        // Fallback if user data isn't synced yet
         router.push('/profile');
       } else {
-        toast.error('Google sign-in failed');
+        toast.error('Google sign-in failed. Please try again.');
       }
     } catch (error) {
       console.error('Google sign-in error:', error);
-      toast.error('Google sign-in failed');
+      toast.error('An unexpected error occurred. Please try again.');
     } finally {
       setSubmitting(false);
     }
@@ -70,7 +119,9 @@ export function LoginForm() {
           required
           value={formData.email}
           onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+          aria-invalid={!!errors.email}
         />
+        {errors.email && <p className="text-sm text-red-600">{errors.email}</p>}
       </div>
       
       <div>
@@ -81,7 +132,9 @@ export function LoginForm() {
           required
           value={formData.password}
           onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+          aria-invalid={!!errors.password}
         />
+        {errors.password && <p className="text-sm text-red-600">{errors.password}</p>}
       </div>
 
       <Button 

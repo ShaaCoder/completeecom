@@ -2,47 +2,80 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { env, getSecureHeaders } from './lib/env';
 
-// Rate limiting store (in production, use Redis or similar)
+// In production, replace Map with Redis or Upstash
 const rateLimitMap = new Map<string, { count: number; resetTime: number }>();
 
-// Helper function to get client IP
+// ✅ Helper: Get client IP
 function getClientIP(request: NextRequest): string {
-  const forwarded = request.headers.get('x-forwarded-for');
-  const realIP = request.headers.get('x-real-ip');
-  const cfConnectingIP = request.headers.get('cf-connecting-ip'); // Cloudflare
-  
-  if (cfConnectingIP) return cfConnectingIP;
-  if (forwarded) return forwarded.split(',')[0].trim();
-  if (realIP) return realIP;
-  
-  return request.ip || 'unknown';
+  const headers = request.headers;
+  const isProduction = env.NODE_ENV === 'production';
+
+  if (!isProduction) return 'localhost-dev';
+
+  return (
+    headers.get('cf-connecting-ip') || // Cloudflare
+    headers.get('x-real-ip') ||
+    headers.get('x-forwarded-for')?.split(',')[0].trim() ||
+    request.ip ||
+    'unknown'
+  );
 }
 
-// Rate limiting function
-function rateLimit(key: string, maxRequests: number, windowMs: number): { allowed: boolean; remaining: number } {
+// ✅ Helper: Get client key (userId if logged in, else IP)
+function getClientKey(request: NextRequest): string {
+  // Try to get user ID from NextAuth session token
+  const sessionToken = request.cookies.get('next-auth.session-token')?.value ||
+                       request.cookies.get('__Secure-next-auth.session-token')?.value;
+  
+  // For now, fall back to IP-based limiting
+  // In a production setup, you could decode the JWT to get user ID
+  // but that would require importing JWT libraries in middleware
+  
+  // Alternative: use x-user-id header if set by your API routes
+  const userId = request.headers.get('x-user-id');
+  
+  if (userId) {
+    return `user_${userId}`;
+  }
+  
+  // If we have a session token, create a unique key based on it
+  if (sessionToken) {
+    // Use first 16 characters of session token as user identifier
+    const userHash = sessionToken.substring(0, 16);
+    return `session_${userHash}`;
+  }
+
+  return `ip_${getClientIP(request)}`;
+}
+
+// ✅ Rate limiting function
+function rateLimit(
+  key: string,
+  maxRequests: number,
+  windowMs: number
+): { allowed: boolean; remaining: number } {
   const now = Date.now();
-  const windowStart = now - windowMs;
-  
-  // Clean old entries
-  for (const [rateLimitKey, data] of Array.from(rateLimitMap.entries())) {
-    if (data.resetTime < now) {
-      rateLimitMap.delete(rateLimitKey);
-    }
+  let current = rateLimitMap.get(key);
+
+  if (!current || current.resetTime < now) {
+    current = { count: 0, resetTime: now + windowMs };
   }
-  
-  const current = rateLimitMap.get(key) || { count: 0, resetTime: now + windowMs };
-  
-  if (current.resetTime < now) {
-    current.count = 0;
-    current.resetTime = now + windowMs;
-  }
-  
+
   current.count++;
   rateLimitMap.set(key, current);
-  
+
+  // Cleanup old entries every 100 requests
+  if (rateLimitMap.size % 100 === 0) {
+    for (const [rateLimitKey, data] of Array.from(rateLimitMap.entries())) {
+      if (data.resetTime < now) {
+        rateLimitMap.delete(rateLimitKey);
+      }
+    }
+  }
+
   return {
     allowed: current.count <= maxRequests,
-    remaining: Math.max(0, maxRequests - current.count)
+    remaining: Math.max(0, maxRequests - current.count),
   };
 }
 
@@ -50,157 +83,162 @@ export function middleware(request: NextRequest) {
   const response = NextResponse.next();
   const isProduction = env.NODE_ENV === 'production';
   const pathname = request.nextUrl.pathname;
-  const clientIP = getClientIP(request);
-  
-  // HTTPS Enforcement in Production
+
+  // ✅ Enforce HTTPS in production
   if (isProduction && request.headers.get('x-forwarded-proto') !== 'https') {
     const httpsUrl = new URL(request.url);
     httpsUrl.protocol = 'https:';
     return NextResponse.redirect(httpsUrl, 301);
   }
-  
-  // Add security headers to all responses
+
+  // ✅ Security headers (all responses)
   const secureHeaders = getSecureHeaders();
   Object.entries(secureHeaders).forEach(([key, value]) => {
     response.headers.set(key, value);
   });
-  
-  // API Routes Security
+
+  // ✅ API Rate Limiting
   if (pathname.startsWith('/api/')) {
-    // Rate limiting for API routes
-    const rateLimitKey = `api_${clientIP}`;
-    const { allowed, remaining } = rateLimit(
-      rateLimitKey, 
-      env.RATE_LIMIT_MAX_REQUESTS || 100, 
-      env.RATE_LIMIT_WINDOW_MS || 900000
-    );
-    
-    if (!allowed) {
-      return new NextResponse('Rate limit exceeded', {
-        status: 429,
-        headers: {
-          'Content-Type': 'application/json',
-          'Retry-After': Math.ceil((env.RATE_LIMIT_WINDOW_MS || 900000) / 1000).toString(),
-          'X-RateLimit-Limit': (env.RATE_LIMIT_MAX_REQUESTS || 100).toString(),
-          'X-RateLimit-Remaining': '0',
-          'X-RateLimit-Reset': new Date(Date.now() + (env.RATE_LIMIT_WINDOW_MS || 900000)).toISOString(),
-        },
-      });
+    // 🔴 Skip webhook → never block payment retries
+    if (pathname.startsWith('/api/payments/webhook')) {
+      return response;
     }
-    
-    // Add rate limit headers
-    response.headers.set('X-RateLimit-Limit', (env.RATE_LIMIT_MAX_REQUESTS || 100).toString());
+
+    const clientKey = getClientKey(request);
+    let limitKey = `api_${clientKey}`;
+    let maxRequests = 60;
+    let windowMs = 60_000; // 1 min
+
+    // Per-route limits
+    if (pathname.startsWith('/api/auth/')) {
+      limitKey = `auth_${clientKey}`;
+      maxRequests = 5;
+    } else if (
+      pathname.startsWith('/api/cart') ||
+      pathname.startsWith('/api/checkout')
+    ) {
+      limitKey = `checkout_${clientKey}`;
+      maxRequests = 30;
+    } else if (
+      pathname.startsWith('/api/products') ||
+      pathname.startsWith('/api/search')
+    ) {
+      limitKey = `search_${clientKey}`;
+      maxRequests = 100;
+    } else if (pathname.startsWith('/api/upload')) {
+      limitKey = `upload_${clientKey}`;
+      maxRequests = 20;
+      windowMs = 900_000; // 15 min
+    }
+
+    const { allowed, remaining } = rateLimit(limitKey, maxRequests, windowMs);
+
+    if (!allowed) {
+      if (isProduction) {
+        return new NextResponse(
+          JSON.stringify({
+            error: 'Rate limit exceeded',
+            message: 'Too many requests',
+          }),
+          {
+            status: 429,
+            headers: {
+              'Content-Type': 'application/json',
+              'Retry-After': Math.ceil(windowMs / 1000).toString(),
+              'X-RateLimit-Limit': maxRequests.toString(),
+              'X-RateLimit-Remaining': '0',
+              'X-RateLimit-Reset': new Date(
+                Date.now() + windowMs
+              ).toISOString(),
+            },
+          }
+        );
+      } else {
+        // Development mode: log warning but allow request
+        console.warn(`⚠️ Rate limit exceeded in dev (would block in prod):`, {
+          path: pathname,
+          limitKey,
+          maxRequests,
+          remaining
+        });
+      }
+    }
+
+    // Add headers for monitoring
+    response.headers.set('X-RateLimit-Limit', maxRequests.toString());
     response.headers.set('X-RateLimit-Remaining', remaining.toString());
-    response.headers.set('X-RateLimit-Reset', new Date(Date.now() + (env.RATE_LIMIT_WINDOW_MS || 900000)).toISOString());
-    
-    // Enhanced CORS for API routes
+    response.headers.set(
+      'X-RateLimit-Reset',
+      new Date(Date.now() + windowMs).toISOString()
+    );
+
+    // ✅ CORS setup
     const origin = request.headers.get('origin');
-    const allowedOrigins = isProduction 
-      ? [env.NEXT_PUBLIC_APP_URL] // Add your production domains
+    const allowedOrigins = isProduction
+      ? [env.NEXT_PUBLIC_APP_URL] // <-- set to your prod domain
       : ['http://localhost:3000', 'http://127.0.0.1:3000'];
-    
+
     if (origin && allowedOrigins.includes(origin)) {
       response.headers.set('Access-Control-Allow-Origin', origin);
     } else if (!isProduction) {
-      // Allow all origins in development (less secure but convenient)
       response.headers.set('Access-Control-Allow-Origin', '*');
     }
-    
+
     response.headers.set('Access-Control-Allow-Credentials', 'true');
-    response.headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
-    response.headers.set('Access-Control-Allow-Headers', 
-      'Content-Type, Authorization, X-Requested-With, Accept, Origin, Cache-Control, X-File-Name');
+    response.headers.set(
+      'Access-Control-Allow-Methods',
+      'GET, POST, PUT, DELETE, OPTIONS, PATCH'
+    );
+    response.headers.set(
+      'Access-Control-Allow-Headers',
+      'Content-Type, Authorization, X-Requested-With, Accept, Origin, Cache-Control, X-File-Name'
+    );
     response.headers.set('Access-Control-Max-Age', '86400'); // 24 hours
-    
-    // Handle preflight requests
+
     if (request.method === 'OPTIONS') {
       return new NextResponse(null, { status: 200, headers: response.headers });
     }
-    
-    // Additional API security headers
-    response.headers.set('X-Content-Type-Options', 'nosniff');
-    response.headers.set('X-Frame-Options', 'DENY');
-    response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
-    response.headers.set('Pragma', 'no-cache');
-    response.headers.set('Expires', '0');
   }
-  
-  // Admin routes protection
+
+  // ✅ Admin routes stricter check
   if (pathname.startsWith('/admin')) {
-    // Additional rate limiting for admin routes
-    const adminRateLimitKey = `admin_${clientIP}`;
-    const { allowed } = rateLimit(adminRateLimitKey, 50, env.RATE_LIMIT_WINDOW_MS || 900000); // Stricter limits
-    
-    if (!allowed) {
+    const clientKey = getClientKey(request);
+    const { allowed } = rateLimit(
+      `admin_${clientKey}`,
+      200,
+      env.RATE_LIMIT_WINDOW_MS || 300000
+    );
+
+    if (!allowed && isProduction) {
       return new NextResponse('Admin rate limit exceeded', {
         status: 429,
         headers: {
           'Content-Type': 'text/html',
-          'Retry-After': Math.ceil((env.RATE_LIMIT_WINDOW_MS || 900000) / 1000).toString(),
+          'Retry-After': Math.ceil(
+            (env.RATE_LIMIT_WINDOW_MS || 300000) / 1000
+          ).toString(),
         },
       });
-    }
-    
-    // Additional security headers for admin
-    response.headers.set('X-Frame-Options', 'DENY');
-    response.headers.set('X-Content-Type-Options', 'nosniff');
-    response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate');
-  }
-  
-  // File upload routes security
-  if (pathname.startsWith('/api/upload')) {
-    const uploadRateLimitKey = `upload_${clientIP}`;
-    const { allowed } = rateLimit(uploadRateLimitKey, 20, env.RATE_LIMIT_WINDOW_MS || 900000); // Stricter limits for uploads
-    
-    if (!allowed) {
-      return new NextResponse('Upload rate limit exceeded', {
-        status: 429,
-        headers: {
-          'Content-Type': 'application/json',
-          'Retry-After': Math.ceil((env.RATE_LIMIT_WINDOW_MS || 900000) / 1000).toString(),
-        },
-      });
+    } else if (!allowed && !isProduction) {
+      console.warn(`⚠️ Admin rate limit exceeded in dev (would block in prod): ${pathname}`);
     }
   }
-  
-  // Security monitoring - log suspicious activity
-  if (env.ENABLE_DEBUG_LOGGING) {
-    const suspiciousPatterns = [
-      /\.\.[\/\\]/,  // Path traversal
-      /<script[^>]*>/i,  // XSS attempts
-      /union.*select/i,  // SQL injection
-      /javascript:/i,    // JavaScript protocol
-      /vbscript:/i,     // VBScript protocol
-    ];
-    
-    const urlString = request.url;
-    const userAgent = request.headers.get('user-agent') || '';
-    
-    if (suspiciousPatterns.some(pattern => pattern.test(urlString) || pattern.test(userAgent))) {
-      console.warn('🚨 Suspicious request detected:', {
-        ip: clientIP,
-        url: urlString,
-        userAgent,
-        timestamp: new Date().toISOString(),
-      });
-    }
-  }
-  
-  // Add security info header in development
+
+  // ✅ Debugging (only dev)
   if (!isProduction) {
-    response.headers.set('X-Security-Info', 'Enhanced security middleware active');
+    response.headers.set(
+      'X-Security-Info',
+      'Enhanced security middleware active'
+    );
   }
-  
+
   return response;
 }
 
 export const config = {
   matcher: [
-    // Match all API routes
     '/api/:path*',
-    // Match admin routes
     '/admin/:path*',
-    // Match all routes for HTTPS redirect in production
-    '/((?!_next/static|_next/image|favicon.ico).*)',
+    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:ico|png|jpg|jpeg|gif|svg|webp|woff|woff2|ttf|eot|css|js|map)).*)',
   ],
 };

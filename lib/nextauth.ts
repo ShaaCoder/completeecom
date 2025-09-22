@@ -51,18 +51,27 @@ export const authOptions: NextAuthOptions = {
           }
 
           const email = String(credentials.email).toLowerCase();
+          console.log('[auth] Attempting to find user:', email);
+          
           const user = await User.findOne({ email, isActive: true }).select('+password');
           if (!user) {
             console.warn('[auth] User not found or inactive:', email);
             return null;
           }
 
+          console.log('[auth] User found, checking password');
           const valid = await user.comparePassword(String(credentials.password));
           if (!valid) {
             console.warn('[auth] Invalid password for:', email);
             return null;
           }
+          
+          console.log('[auth] Password valid, updating last login');
+          // Update last login
+          user.lastLoginAt = new Date();
+          await user.save();
 
+          console.log('[auth] Login successful for:', email);
           return {
             id: user._id.toString(),
             name: user.name,
@@ -86,6 +95,7 @@ export const authOptions: NextAuthOptions = {
   session: {
     strategy: 'jwt',
     maxAge: 7 * 24 * 60 * 60, // 7 days
+    updateAge: 24 * 60 * 60, // 24 hours - extend session when user is active
   },
 
   // Account linking is handled in the callbacks
@@ -223,7 +233,8 @@ export const authOptions: NextAuthOptions = {
         httpOnly: true,
         sameSite: 'lax',
         path: '/',
-        secure: process.env.NODE_ENV === 'production'
+        secure: process.env.NODE_ENV === 'production',
+        maxAge: 7 * 24 * 60 * 60 // 7 days to match session maxAge
       }
     },
     callbackUrl: {
@@ -231,7 +242,8 @@ export const authOptions: NextAuthOptions = {
       options: {
         sameSite: 'lax',
         path: '/',
-        secure: process.env.NODE_ENV === 'production'
+        secure: process.env.NODE_ENV === 'production',
+        maxAge: 60 * 60 // 1 hour for callback URL
       }
     },
     csrfToken: {
@@ -240,7 +252,8 @@ export const authOptions: NextAuthOptions = {
         httpOnly: true,
         sameSite: 'lax',
         path: '/',
-        secure: process.env.NODE_ENV === 'production'
+        secure: process.env.NODE_ENV === 'production',
+        maxAge: 60 * 60 * 24 // 24 hours for CSRF token
       }
     }
   },

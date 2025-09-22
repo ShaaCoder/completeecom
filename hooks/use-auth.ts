@@ -5,6 +5,7 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 import { signIn, signOut } from 'next-auth/react';
 import { apiClient } from '@/lib/api';
 import { UserResponse } from '@/types/user';
+import { logAuthEvent, logAuthError, logSessionEvent } from '@/lib/auth-debug';
 
 interface User {
   id: string;
@@ -34,6 +35,7 @@ interface AuthStore {
   checkAuth: () => Promise<void>;
   setSessionUser: (session: any) => void;
   checkSessionAuth: () => Promise<void>;
+  resetAuthState: () => void;
 }
 
 
@@ -46,6 +48,7 @@ export const useAuthStore = create<AuthStore>()(
       hasInitialized: false,
 
       login: async (email: string, password: string) => {
+        logAuthEvent('user-login', { email, method: 'credentials' });
         set({ isLoading: true });
         try {
           const res = await signIn('credentials', {
@@ -54,25 +57,54 @@ export const useAuthStore = create<AuthStore>()(
             password,
           });
           if (res?.error) {
-            throw new Error(res.error);
+            logAuthError(res.error, 'credentials-signin');
+            throw new Error(res.error === 'CredentialsSignin' ? 'Invalid email or password' : res.error);
           }
-          // Fetch profile to populate store
-          const response = await apiClient.getProfile();
-          if (response.success && response.data?.user) {
+          
+          // Wait a moment for NextAuth session to be established
+          await new Promise(resolve => setTimeout(resolve, 500));
+          
+          // Try to fetch profile to populate store
+          logAuthEvent('api-call', { endpoint: '/auth/profile', method: 'GET' });
+          try {
+            const response = await apiClient.getProfile();
+            if (response.success && response.data?.user) {
+              logAuthEvent('auth-success', { 
+                userId: response.data.user.id, 
+                email: response.data.user.email 
+              }, response.data.user);
+              set({
+                user: response.data.user,
+                isAuthenticated: true,
+                isLoading: false,
+                hasInitialized: true,
+              });
+            } else {
+              // Profile fetch failed, but login was successful
+              // Set basic authenticated state and let session handling take over
+              logAuthEvent('api-call', { endpoint: '/auth/profile', success: false, error: 'No user data, using session fallback' });
+              set({
+                user: null,
+                isAuthenticated: true,
+                isLoading: false,
+                hasInitialized: true,
+              });
+            }
+          } catch (profileError) {
+            // Profile fetch failed, but login was successful
+            // Set basic authenticated state
+            logAuthEvent('api-call', { endpoint: '/auth/profile', success: false, error: 'Profile fetch failed, using session fallback' });
             set({
-              user: response.data.user,
+              user: null,
               isAuthenticated: true,
               isLoading: false,
               hasInitialized: true,
             });
-          } else {
-            set({ isLoading: false });
-            throw new Error('Failed to load profile after login');
           }
         } catch (error) {
           set({ isLoading: false });
-          console.error('❌ Login failed:', error);
-          throw new Error(error instanceof Error ? error.message : 'Login failed');
+          logAuthError(error instanceof Error ? error : new Error(String(error)), 'login-flow');
+          throw error instanceof Error ? error : new Error('Login failed');
         }
       },
 
@@ -82,6 +114,9 @@ export const useAuthStore = create<AuthStore>()(
         try {
           const response = await apiClient.register(userData);
           if (response.success && response.data?.user) {
+            // Add a small delay to ensure user is properly saved in database
+            await new Promise(resolve => setTimeout(resolve, 500));
+            
             // Immediately sign in using credentials
             const res = await signIn('credentials', {
               redirect: false,
@@ -90,33 +125,48 @@ export const useAuthStore = create<AuthStore>()(
             });
             if (res?.error) {
               console.error('SignIn after registration failed:', res.error);
-              throw new Error(res.error);
+              // Still set the user data even if sign-in fails
+              set({
+                user: response.data.user,
+                isAuthenticated: true,
+                isLoading: false,
+                hasInitialized: true,
+              });
+            } else {
+              set({
+                user: response.data.user,
+                isAuthenticated: true,
+                isLoading: false,
+                hasInitialized: true,
+              });
             }
-
-            set({
-              user: response.data.user,
-              isAuthenticated: true,
-              isLoading: false,
-              hasInitialized: true, // Ensure this is set
-            });
           } else {
-            throw new Error(JSON.stringify(response));
+            throw new Error(response.error || response.message || 'Registration failed');
           }
         } catch (error) {
-          set({ isLoading: false, hasInitialized: true }); // Set initialized even on error
-          throw new Error(
-            error instanceof Error ? error.message : JSON.stringify({ error: 'Registration failed' })
-          );
+          set({ isLoading: false, hasInitialized: true });
+          if (error instanceof Error) {
+            throw error;
+          } else if (typeof error === 'string') {
+            throw new Error(error);
+          } else {
+            throw new Error('Registration failed');
+          }
         }
       },
 
       logout: async () => {
+        const currentUser = get().user;
+        logAuthEvent('user-logout', { userId: currentUser?.id }, currentUser);
         set({ isLoading: true });
         try {
           await signOut({ redirect: false });
           await apiClient.logout();
+        } catch (error) {
+          logAuthError(error instanceof Error ? error : new Error('Logout failed'), 'logout-flow');
         } finally {
           set({ user: null, isAuthenticated: false, isLoading: false });
+          logAuthEvent('auth-success', { action: 'logout-complete' });
         }
       },
 
@@ -187,6 +237,12 @@ export const useAuthStore = create<AuthStore>()(
       },
 
       setSessionUser: (session: any) => {
+        logAuthEvent('persistence', { 
+          action: 'setSessionUser',
+          hasSession: !!session, 
+          sessionUser: session?.user?.email 
+        });
+        
         if (session?.user) {
           const user: UserResponse = {
             id: (session.user as any).id,
@@ -203,9 +259,11 @@ export const useAuthStore = create<AuthStore>()(
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
           };
+          logSessionEvent('found', { source: 'setSessionUser', userEmail: user.email }, user);
           set({ user, isAuthenticated: true, isLoading: false, hasInitialized: true });
         } else {
           // Properly handle no session case
+          logSessionEvent('lost', { source: 'setSessionUser', reason: 'no session data' });
           set({ user: null, isAuthenticated: false, isLoading: false, hasInitialized: true });
         }
       },
@@ -223,6 +281,16 @@ export const useAuthStore = create<AuthStore>()(
         set({ isLoading: false });
       },
 
+      resetAuthState: () => {
+        logAuthEvent('persistence', { action: 'resetAuthState', reason: 'recovery' });
+        set({ 
+          hasInitialized: false, 
+          isLoading: false, 
+          user: null, 
+          isAuthenticated: false 
+        });
+      },
+
 
     }),
     {
@@ -231,6 +299,16 @@ export const useAuthStore = create<AuthStore>()(
       partialize: (state) => ({
         user: state.user,
         isAuthenticated: state.isAuthenticated,
+      }),
+      // Prevent hydration issues
+      skipHydration: false,
+      // Use merge strategy to handle partial state restoration
+      merge: (persistedState, currentState) => ({
+        ...currentState,
+        ...persistedState,
+        // Always start with loading state during hydration
+        isLoading: false,
+        hasInitialized: false,
       }),
     }
   )

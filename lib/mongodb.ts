@@ -41,14 +41,17 @@ if (!MONGODB_DB_NAME) {
 // Connection options for optimal performance and reliability
 const options: mongoose.ConnectOptions = {
   bufferCommands: false, // Disable mongoose buffering
-  maxPoolSize: 10, // Maintain up to 10 socket connections
-  serverSelectionTimeoutMS: 5000, // Keep trying to send operations for 5 seconds
-  socketTimeoutMS: 45000, // Close sockets after 45 seconds of inactivity
+  maxPoolSize: 15, // Increased pool size for better performance
+  serverSelectionTimeoutMS: 10000, // Increased timeout for better reliability
+  socketTimeoutMS: 60000, // Increased socket timeout
   family: 4, // Use IPv4, skip trying IPv6
   retryWrites: true,
   w: 'majority',
-  maxIdleTimeMS: 30000, // Close connections after 30 seconds of inactivity
-  minPoolSize: 2, // Maintain at least 2 socket connections
+  maxIdleTimeMS: 60000, // Increased idle time
+  minPoolSize: 3, // Maintain more connections
+  heartbeatFrequencyMS: 10000, // Check connection health every 10 seconds
+  maxStalenessSeconds: 90, // Allow slightly stale reads for better performance
+  compressors: 'zlib', // Enable compression for network efficiency
 };
 
 let cached = global.mongoose;
@@ -60,33 +63,52 @@ if (!cached) {
 /**
  * Connect to MongoDB with connection caching and error handling
  * Implements exponential backoff for connection retries
+ * @param retryAttempt - Current retry attempt number
  * @returns Promise<typeof mongoose> - Mongoose connection instance
  */
-async function connectDB(): Promise<typeof mongoose> {
-  // Return existing connection if available
-  if (cached!.conn) {
+async function connectDB(retryAttempt = 0): Promise<typeof mongoose> {
+  // Return existing connection if available and healthy
+  if (cached!.conn && mongoose.connection.readyState === 1) {
     return cached!.conn;
+  }
+
+  // Clear stale connection
+  if (cached!.conn && mongoose.connection.readyState !== 1) {
+    cached!.conn = null;
+    cached!.promise = null;
   }
 
   // Create new connection if no cached promise exists
   if (!cached!.promise) {
+    const maxRetries = 5;
+    const baseDelay = 1000; // 1 second
+    
     cached!.promise = mongoose.connect(MONGODB_URI!, options).then((mongoose) => {
       
-      // Connection event handlers for monitoring
+      // Enhanced connection event handlers for monitoring
       mongoose.connection.on('connected', () => {
-        // Mongoose connected to MongoDB
+        console.log('🟢 MongoDB connected successfully');
       });
 
       mongoose.connection.on('error', (err) => {
-        // Mongoose connection error
+        console.error('🔴 MongoDB connection error:', err);
+        // Don't exit process, let it retry
       });
 
       mongoose.connection.on('disconnected', () => {
-        // Mongoose disconnected from MongoDB
+        console.warn('🟡 MongoDB disconnected. Attempting to reconnect...');
       });
 
       mongoose.connection.on('reconnected', () => {
-        // Mongoose reconnected to MongoDB
+        console.log('🟢 MongoDB reconnected successfully');
+      });
+
+      mongoose.connection.on('connecting', () => {
+        console.log('🟡 MongoDB connecting...');
+      });
+
+      mongoose.connection.on('close', () => {
+        console.log('🔴 MongoDB connection closed');
       });
 
       // Graceful shutdown handlers
@@ -101,8 +123,18 @@ async function connectDB(): Promise<typeof mongoose> {
       });
 
       return mongoose;
-    }).catch((error) => {
+    }).catch(async (error) => {
       cached!.promise = null; // Reset promise on failure
+      
+      if (retryAttempt < maxRetries) {
+        const delay = baseDelay * Math.pow(2, retryAttempt); // Exponential backoff
+        console.warn(`🔄 MongoDB connection failed (attempt ${retryAttempt + 1}/${maxRetries}). Retrying in ${delay}ms...`);
+        
+        await new Promise(resolve => setTimeout(resolve, delay));
+        return connectDB(retryAttempt + 1);
+      }
+      
+      console.error('🔴 MongoDB connection failed after all retry attempts');
       throw error;
     });
   }
