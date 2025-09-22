@@ -8,6 +8,9 @@ import User from '@/models/User';
 import { createSuccessResponse, createErrorResponse, handleApiError, getClientIP, rateLimit } from '@/lib/api-helpers';
 import { emitOrderEvent } from './stream/route';
 
+// Mark this route as dynamic to prevent static generation
+export const dynamic = 'force-dynamic';
+
 export async function GET(request: NextRequest) {
   try {
     await connectDB();

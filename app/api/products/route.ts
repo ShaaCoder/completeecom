@@ -27,6 +27,9 @@ import { productValidation } from '@/lib/validations';
 import { CreateProductRequest } from '@/types/product';
 import { Product as ProductType } from '@/types/index';
 
+// Mark this route as dynamic to prevent static generation
+export const dynamic = 'force-dynamic';
+
 /**
  * GET /api/products
  * Retrieve products with pagination, filtering, and search

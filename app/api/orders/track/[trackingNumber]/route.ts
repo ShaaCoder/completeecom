@@ -22,6 +22,9 @@ import {
   rateLimit 
 } from '@/lib/api-helpers';
 
+// Mark this route as dynamic to prevent static generation
+export const dynamic = 'force-dynamic';
+
 export async function GET(
   request: NextRequest,
   { params }: { params: { trackingNumber: string } }

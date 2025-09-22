@@ -12,6 +12,9 @@ import Order from '@/models/Order';
 import { deliveryPartner } from '@/lib/delivery';
 import { getConnections, getStatusChangeMessage, getConnectionStatus, setConnectionStatus, deleteConnectionStatus } from '@/lib/tracking-utils';
 
+// Mark this route as dynamic to prevent static generation
+export const dynamic = 'force-dynamic';
+
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const orderId = searchParams.get('orderId');

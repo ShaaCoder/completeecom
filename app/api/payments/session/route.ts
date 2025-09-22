@@ -14,6 +14,9 @@ import {
 } from '@/lib/api-helpers';
 import Order from '@/models/Order';
 
+// Mark this route as dynamic to prevent static generation
+export const dynamic = 'force-dynamic';
+
 export async function GET(request: NextRequest) {
   try {
     await connectDB();
