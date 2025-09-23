@@ -309,6 +309,30 @@ const config: RequestInit = {
     });
   }
 
+  async createCODOrder(data: {
+    items: Array<{
+      productId: string;
+      name: string;
+      price: number;
+      image: string;
+      quantity: number;
+    }>;
+    shippingAddress: {
+      name: string;
+      phone: string;
+      address: string;
+      city: string;
+      state: string;
+      pincode: string;
+    };
+    couponCode?: string;
+  }) {
+    return this.request<any>('/orders/create-cod', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
   async verifyPayment(paymentIntentId: string) {
     return this.request<any>('/payments/verify', {
       method: 'POST',

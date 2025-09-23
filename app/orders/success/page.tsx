@@ -12,6 +12,7 @@ import { apiClient } from '@/lib/api';
 export default function OrderSuccessPage() {
   const searchParams = useSearchParams();
   const sessionId = searchParams.get('session_id');
+  const codOrderNumber = searchParams.get('order_number');
   const [orderData, setOrderData] = useState<{
     orderNumber: string;
     orderId: string;
@@ -23,10 +24,14 @@ export default function OrderSuccessPage() {
   useEffect(() => {
     if (sessionId) {
       verifyPayment();
+    } else if (codOrderNumber) {
+      // COD flow: we already have order number; show success immediately
+      setOrderData({ orderNumber: codOrderNumber, orderId: '', amount: 0 });
+      setLoading(false);
     } else {
       setLoading(false);
     }
-  }, [sessionId]);
+  }, [sessionId, codOrderNumber]);
 
   const verifyPayment = async () => {
     try {

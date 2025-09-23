@@ -10,10 +10,10 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useCartStore } from '@/lib/cart-store';
 import { useAuthStore } from '@/hooks/use-auth';
-import { createOrder } from '@/hooks/use-orders';
 import { Address } from '@/types';
 import { toast } from 'sonner';
 import { StripeCheckout } from '@/components/payment/stripe-checkout';
+import { apiClient } from '@/lib/api';
 
 export function CheckoutPageClient() {
   'use client';
@@ -46,7 +46,9 @@ export function CheckoutPageClient() {
 
   const subtotal = getTotalPrice();
   const shipping = subtotal > 999 ? 0 : 99;
+  const COD_CHARGE = 49;
   const total = subtotal + shipping;
+  const totalWithCOD = total + COD_CHARGE;
 
   useEffect(() => {
     if (status !== 'loading' && !isUserAuthenticated) {
@@ -108,16 +110,32 @@ export function CheckoutPageClient() {
     e.preventDefault();
     setIsProcessing(true);
     try {
-      const orderData = {
-        items: items.map(item => ({ productId: item.productId, quantity: item.quantity })),
+      // Only COD uses this handler; card/upi are handled by StripeCheckout component
+      if (paymentMethod !== 'cod') {
+        toast.error('Invalid payment method for this flow');
+        return;
+      }
+
+      const response = await apiClient.createCODOrder({
+        items: items.map(item => ({
+          productId: item.productId,
+          name: item.name,
+          price: item.price,
+          image: item.image,
+          quantity: item.quantity,
+        })),
         shippingAddress: shippingAddress as Address,
-        paymentMethod
-      };
-      const response = await createOrder(orderData);
+      });
+
       if (response.success) {
         clearCart();
         toast.success('Order placed successfully!');
-        router.push('/orders/success');
+        const orderNumber = response.data?.orderNumber;
+        if (orderNumber) {
+          router.push(`/orders/success?order_number=${encodeURIComponent(orderNumber)}`);
+        } else {
+          router.push('/orders/success');
+        }
       } else {
         toast.error(response.message || 'Failed to place order');
       }
@@ -253,12 +271,18 @@ export function CheckoutPageClient() {
               ) : (
                 <div className="bg-white rounded-lg border p-6">
                   <h3 className="text-lg font-semibold mb-4">Cash on Delivery</h3>
-                  <p className="text-gray-600 mb-4">Pay when your order is delivered. Additional charges may apply.</p>
+                  <p className="text-gray-600 mb-4">Pay when your order is delivered. An additional COD handling charge applies.</p>
+                  <div className="mb-4 text-sm">
+                    <div className="flex justify-between"><span>Subtotal</span><span>₹{subtotal}</span></div>
+                    <div className="flex justify-between"><span>Shipping</span><span className={shipping === 0 ? 'text-green-600' : ''}>{shipping === 0 ? 'Free' : `₹${shipping}`}</span></div>
+                    <div className="flex justify-between"><span>COD Charge</span><span>₹{COD_CHARGE}</span></div>
+                    <div className="flex justify-between text-lg font-bold pt-2 border-t"><span>Total</span><span>₹{totalWithCOD}</span></div>
+                  </div>
                   <form onSubmit={handlePayment} className="space-y-4">
                     <div className="flex gap-3">
                       <Button type="button" variant="outline" onClick={() => setStep(1)} className="flex-1" disabled={isProcessing}>Back</Button>
                       <Button type="submit" className="bg-rose-600 hover:bg-rose-700 flex-1" size="lg" disabled={isProcessing}>
-                        {isProcessing ? 'Processing...' : `Place Order - ₹${total}`}
+                        {isProcessing ? 'Processing...' : `Place Order - ₹${totalWithCOD}`}
                       </Button>
                     </div>
                   </form>
