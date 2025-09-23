@@ -5,7 +5,7 @@
  * Comprehensive diagnostic tool for API connection issues
  */
 
-import { NextRequest } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import connectDB, { getConnectionStatus, getConnectionStats, isConnected } from '@/lib/mongodb';
 import Product from '@/models/Product';
 import Category from '@/models/Category';
@@ -20,9 +20,9 @@ import {
 
 export async function GET(request: NextRequest) {
   const startTime = Date.now();
-  
+
   try {
-    logAuthEvent('api-call', { 
+    logAuthEvent('api-call', {
       endpoint: '/api/debug/connection-status',
       method: 'GET',
       startTime: new Date().toISOString()
@@ -39,7 +39,13 @@ export async function GET(request: NextRequest) {
     const isDbConnected = isConnected();
 
     // Test individual model queries
-    const modelTests = [];
+    const modelTests: Array<{
+      model: string;
+      success: boolean;
+      count: number;
+      responseTime: number;
+      error: string | null;
+    }> = [];
 
     // Test Products
     try {
@@ -150,10 +156,10 @@ export async function GET(request: NextRequest) {
 
     const totalTime = Date.now() - startTime;
 
-    const diagnostics = {
+    const diagnostics: any = {
       timestamp: new Date().toISOString(),
       totalResponseTime: totalTime,
-      
+
       // Database diagnostics
       database: {
         connectionStatus,
@@ -161,16 +167,16 @@ export async function GET(request: NextRequest) {
         connectionTime: dbConnectTime,
         stats: connectionStats,
       },
-      
+
       // Model diagnostics
       models: modelTests,
-      
+
       // Environment diagnostics
       environment: envCheck,
-      
+
       // Rate limiting diagnostics
       rateLimiting: rateLimitHeaders,
-      
+
       // System diagnostics
       system: {
         nodeVersion: process.version,
@@ -183,7 +189,7 @@ export async function GET(request: NextRequest) {
           external: `${Math.round(memoryUsage.external / 1024 / 1024)} MB`,
         }
       },
-      
+
       // Health summary
       health: {
         overall: connectionStatus === 'connected' && modelTests.every(test => test.success),
@@ -191,7 +197,7 @@ export async function GET(request: NextRequest) {
         models: modelTests.every(test => test.success),
         performance: totalTime < 5000, // Under 5 seconds
       },
-      
+
       // Issues detected
       issues: []
     };
@@ -200,11 +206,11 @@ export async function GET(request: NextRequest) {
     if (diagnostics.database.connectionTime > 2000) {
       diagnostics.issues.push('Database connection is slow (>2s)');
     }
-    
+
     if (!diagnostics.database.isConnected) {
       diagnostics.issues.push('Database is not connected');
     }
-    
+
     modelTests.forEach(test => {
       if (!test.success) {
         diagnostics.issues.push(`${test.model} model test failed: ${test.error}`);
@@ -213,32 +219,38 @@ export async function GET(request: NextRequest) {
         diagnostics.issues.push(`${test.model} query is slow (${test.responseTime}ms)`);
       }
     });
-    
+
     if (totalTime > 5000) {
       diagnostics.issues.push('Overall diagnostic response time is slow (>5s)');
     }
 
     // Log the completion
-    logAuthEvent('api-call', { 
+    logAuthEvent('api-call', {
       endpoint: '/api/debug/connection-status',
       success: true,
       totalTime,
       issues: diagnostics.issues.length
     });
 
-    return createSuccessResponse(
-      diagnostics,
-      `Diagnostics completed in ${totalTime}ms`
+    // Use NextResponse.json for API route compliance
+    return NextResponse.json(
+      createSuccessResponse(
+        diagnostics,
+        `Diagnostics completed in ${totalTime}ms`
+      )
     );
 
   } catch (error) {
-    logAuthEvent('api-call', { 
+    logAuthEvent('api-call', {
       endpoint: '/api/debug/connection-status',
       success: false,
       error: error instanceof Error ? error.message : 'Unknown error',
       totalTime: Date.now() - startTime
     });
 
-    return handleApiError(error, 'GET /api/debug/connection-status');
+    // Use NextResponse.json for API route compliance
+    return NextResponse.json(
+      handleApiError(error, 'GET /api/debug/connection-status')
+    );
   }
 }
