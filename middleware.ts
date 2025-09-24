@@ -111,8 +111,33 @@ export function middleware(request: NextRequest) {
 
     // Per-route limits
     if (pathname.startsWith('/api/auth/')) {
-      limitKey = `auth_${clientKey}`;
-      maxRequests = 5;
+      // Use per-endpoint buckets so a single login flow doesn't trip a shared auth bucket
+      limitKey = `auth_${pathname}_${clientKey}`;
+
+      // In development, relax limits aggressively to avoid noisy warnings during NextAuth flows
+      if (!isProduction) {
+        maxRequests = 1000; // effectively disable in dev
+      } else {
+        // In production, set sensible limits per endpoint to allow OAuth flows
+        if (pathname.endsWith('/session')) {
+          // Session endpoint can be polled frequently by the client
+          maxRequests = 60; // per minute
+        } else if (
+          pathname.includes('/signin') ||
+          pathname.includes('/callback')
+        ) {
+          // Sign-in and callback are invoked a few times during OAuth
+          maxRequests = 20; // per minute
+        } else if (
+          pathname.endsWith('/csrf') ||
+          pathname.endsWith('/providers')
+        ) {
+          maxRequests = 30; // per minute
+        } else {
+          // Default for other auth endpoints
+          maxRequests = 30;
+        }
+      }
     } else if (
       pathname.startsWith('/api/cart') ||
       pathname.startsWith('/api/checkout')

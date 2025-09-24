@@ -197,6 +197,11 @@ UserSchema.index({ username: 1, isActive: 1 });
 UserSchema.index({ role: 1, isActive: 1 });
 UserSchema.index({ createdAt: -1 });
 
+// Helper to detect if a string is already a bcrypt hash
+function isBcryptHash(value: any): boolean {
+  return typeof value === 'string' && /^\$2[aby]\$\d{2}\$[./A-Za-z0-9]{53}$/.test(value);
+}
+
 // Pre-save middleware to hash password
 UserSchema.pre('save', async function (next) {
   if (!this.isModified('password')) return next();
@@ -206,7 +211,14 @@ UserSchema.pre('save', async function (next) {
     if (typeof this.password !== 'string') {
       return next(new Error('Password must be a string'));
     }
-    bcrypt.hash(this.password, saltRounds)
+
+    // Avoid double hashing if password already looks like a bcrypt hash
+    if (isBcryptHash(this.password)) {
+      return next();
+    }
+
+    bcrypt
+      .hash(this.password, saltRounds)
       .then((hashed: string) => {
         this.password = hashed;
         next();
@@ -238,7 +250,24 @@ UserSchema.pre('save', function (next) {
 // Instance method to compare password
 UserSchema.methods.comparePassword = async function (candidatePassword: string): Promise<boolean> {
   try {
-    return await bcrypt.compare(candidatePassword, this.password);
+    const stored = this.password as string;
+
+    // If the stored value is not a bcrypt hash (legacy/plaintext), perform a one-time migration
+    if (!isBcryptHash(stored)) {
+      // Compare as plaintext for legacy records
+      const matches = typeof stored === 'string' && stored.length > 0 && candidatePassword === stored;
+      if (!matches) return false;
+
+      // Auto-migrate: hash the password and persist so future logins use bcrypt
+      const saltRounds = env.BCRYPT_SALT_ROUNDS;
+      const hashed = await bcrypt.hash(candidatePassword, saltRounds);
+      this.password = hashed;
+      await this.save();
+      return true;
+    }
+
+    // Normal bcrypt comparison
+    return await bcrypt.compare(candidatePassword, stored);
   } catch (error) {
     throw new Error('Password comparison failed');
   }

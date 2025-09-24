@@ -10,6 +10,7 @@
  */
 
 import mongoose from 'mongoose';
+import { env } from '@/lib/env';
 
 // Define connection interface for type safety
 interface MongoConnection {
@@ -24,7 +25,7 @@ declare global {
 
 // MongoDB connection configuration
 const MONGODB_URI = process.env.MONGODB_URI;
-const MONGODB_DB_NAME = process.env.MONGODB_DB_NAME;
+const MONGODB_DB_NAME = process.env.MONGODB_DB_NAME || env.MONGODB_DB_NAME;
 
 if (!MONGODB_URI) {
   throw new Error(
@@ -40,6 +41,7 @@ if (!MONGODB_DB_NAME) {
 
 // Connection options for optimal performance and reliability
 const options: mongoose.ConnectOptions = {
+  dbName: MONGODB_DB_NAME, // Ensure consistent DB selection
   bufferCommands: false, // Disable mongoose buffering
   maxPoolSize: 15, // Increased pool size for better performance
   serverSelectionTimeoutMS: 10000, // Increased timeout for better reliability

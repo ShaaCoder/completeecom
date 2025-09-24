@@ -46,7 +46,8 @@ export async function POST(request: NextRequest) {
     const userData: any = result.data;
 
     // Password strength validation
-    if (!validatePasswordStrength(userData.password)) {
+    const pwdStrength = validatePasswordStrength(userData.password);
+    if (!pwdStrength.isValid) {
       return createErrorResponse(
         'Password is too weak',
         400,
@@ -74,9 +75,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Create user
+    // Create user (password will be hashed by model pre-save; make sure it's a string)
     const newUser = new User({
       ...userData,
+      password: String(userData.password),
       email: userData.email.toLowerCase(),
       username: userData.username.toLowerCase(),
       role: userData.role === 'admin' ? 'admin' : 'customer',

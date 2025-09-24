@@ -125,10 +125,10 @@ export const useAuthStore = create<AuthStore>()(
             });
             if (res?.error) {
               console.error('SignIn after registration failed:', res.error);
-              // Still set the user data even if sign-in fails
+              // Do NOT mark authenticated if NextAuth sign-in failed
               set({
-                user: response.data.user,
-                isAuthenticated: true,
+                user: null,
+                isAuthenticated: false,
                 isLoading: false,
                 hasInitialized: true,
               });

@@ -13,6 +13,7 @@ import { MongoClient } from 'mongodb';
 import mongoose from 'mongoose';
 import User from '@/models/User';
 import { env } from '@/lib/env';
+import connectDB from '@/lib/mongodb';
 
 const client = new MongoClient(env.MONGODB_URI);
 const clientPromise = client.connect();
@@ -23,6 +24,9 @@ export const authOptions: NextAuthOptions = {
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID!,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+      // Allow linking Google OAuth to an existing account with the same email.
+      // Safe for Google since emails are verified; avoids OAuthAccountNotLinked errors.
+      allowDangerousEmailAccountLinking: true,
       authorization: {
         params: {
           scope: 'openid email profile',
@@ -45,10 +49,8 @@ export const authOptions: NextAuthOptions = {
             return null;
           }
 
-          // Ensure DB connection
-          if (mongoose.connection.readyState === 0) {
-            await mongoose.connect(env.MONGODB_URI, { dbName: env.MONGODB_DB_NAME });
-          }
+// Ensure DB connection
+          await connectDB();
 
           const email = String(credentials.email).toLowerCase();
           console.log('[auth] Attempting to find user:', email);
@@ -116,10 +118,8 @@ export const authOptions: NextAuthOptions = {
 
     async jwt({ token, user, account }) {
       try {
-        // Ensure DB connection when needed
-        if (mongoose.connection.readyState === 0) {
-          await mongoose.connect(env.MONGODB_URI, { dbName: env.MONGODB_DB_NAME });
-        }
+// Ensure DB connection when needed
+        await connectDB();
 
         // Handle Google OAuth: ensure user exists in our User collection
         if (account?.provider === 'google' && user) {
@@ -205,12 +205,8 @@ export const authOptions: NextAuthOptions = {
     async signIn(message) {
       if (message.account?.provider === 'google') {
         try {
-          // Connect to MongoDB
-          if (mongoose.connection.readyState === 0) {
-            await mongoose.connect(env.MONGODB_URI, {
-              dbName: env.MONGODB_DB_NAME,
-            });
-          }
+// Connect to MongoDB
+          await connectDB();
 
           // Update last login
           await User.findOneAndUpdate(
