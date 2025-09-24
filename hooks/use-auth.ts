@@ -303,13 +303,19 @@ export const useAuthStore = create<AuthStore>()(
       // Prevent hydration issues
       skipHydration: false,
       // Use merge strategy to handle partial state restoration
-      merge: (persistedState, currentState) => ({
-        ...currentState,
-        ...persistedState,
-        // Always start with loading state during hydration
-        isLoading: false,
-        hasInitialized: false,
-      }),
+      merge: (
+        persistedState: unknown,
+        currentState: AuthStore
+      ): AuthStore => {
+        const safe = (persistedState ?? {}) as Partial<AuthStore>
+        return {
+          ...currentState,
+          ...safe,
+          // Always start with loading state during hydration
+          isLoading: false,
+          hasInitialized: false,
+        }
+      },
     }
   )
 );

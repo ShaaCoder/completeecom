@@ -6,7 +6,7 @@ import connectDB from '@/lib/mongodb';
 import Order from '@/models/Order';
 import User from '@/models/User';
 import { createSuccessResponse, createErrorResponse, handleApiError, getClientIP, rateLimit } from '@/lib/api-helpers';
-import { emitOrderEvent } from './stream/route';
+import { emitOrderEvent } from '@/lib/sse';
 
 // Mark this route as dynamic to prevent static generation
 export const dynamic = 'force-dynamic';

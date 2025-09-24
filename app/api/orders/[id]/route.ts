@@ -18,7 +18,7 @@ import {
   getClientIP,
   withAuth
 } from '@/lib/api-helpers';
-import { emitOrderEvent } from '@/app/api/orders/stream/route';
+import { emitOrderEvent } from '@/lib/sse';
 import { validateObjectId } from '@/lib/validations';
 import { OrderResponse } from '@/types/order';
 import emailService from '@/lib/email-service';

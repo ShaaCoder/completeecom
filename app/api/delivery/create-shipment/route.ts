@@ -14,7 +14,7 @@ import {
   withAuth,
 } from '@/lib/api-helpers';
 import { validateObjectId } from '@/lib/validations';
-import { emitOrderEvent } from '@/app/api/orders/stream/route';
+import { emitOrderEvent } from '@/lib/sse';
 
 export async function POST(request: NextRequest) {
   try {
