@@ -9,6 +9,7 @@ import { NextRequest } from 'next/server';
 import connectDB from '@/lib/mongodb';
 import Category from '@/models/Category';
 import Product from '@/models/Product';
+import mongoose from 'mongoose';
 import {
   createSuccessResponse,
   createErrorResponse,
@@ -47,12 +48,35 @@ export async function GET(request: NextRequest) {
       .sort({ name: 1 })
       .lean();
 
-    // Calculate real-time product counts for each category
+    // Helper: get a category's own ID plus all descendant category IDs
+    const getCategoryAndDescendantIds = async (rootId: any) => {
+      const seen = new Set<string>([String(rootId)]);
+      let frontier: any[] = [rootId];
+      while (frontier.length) {
+        const children = await Category.find({ parentCategory: { $in: frontier } })
+          .select('_id')
+          .lean();
+        const next: any[] = [];
+        for (const child of children) {
+          const idStr = String(child._id);
+          if (!seen.has(idStr)) {
+            seen.add(idStr);
+            next.push(child._id);
+          }
+        }
+        frontier = next;
+      }
+      // Convert to ObjectId array for $in query
+      return Array.from(seen).map(id => new mongoose.Types.ObjectId(id));
+    };
+
+    // Calculate real-time product counts for each category (including descendants)
     const categoriesWithRealCounts = await Promise.all(
       categories.map(async (category) => {
-        // Get real-time product count
+        const allCategoryIds = await getCategoryAndDescendantIds(category._id);
+        // Get real-time product count across the whole subtree
         const realProductCount = await Product.countDocuments({
-          category: category._id,
+          category: { $in: allCategoryIds },
           isActive: true
         });
         
@@ -65,7 +89,7 @@ export async function GET(request: NextRequest) {
         
         return {
           ...category,
-          productCount: realProductCount // Use real-time count
+          productCount: realProductCount // Use real-time (subtree) count
         };
       })
     );

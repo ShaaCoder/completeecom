@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useSession, signOut } from 'next-auth/react';
+import { useSession } from 'next-auth/react';
 import { 
   Package, 
   Eye, 
@@ -51,14 +51,17 @@ export default function ProfilePage() {
   }, [mounted, session, isAuthenticated, status, router]);
 
   const handleLogout = async () => {
-    if (session) {
-      // Sign out from NextAuth
-      await signOut({ redirect: false });
-      router.push('/');
-    } else {
-      // Use existing logout
+    try {
       await logout();
-      router.push('/');
+    } catch (e) {
+      console.error('Logout failed', e);
+    } finally {
+      if (typeof window !== 'undefined') {
+        window.location.href = '/';
+      } else {
+        router.replace('/');
+        router.refresh();
+      }
     }
   };
 

@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useSession, signOut } from 'next-auth/react';
+import { useSession } from 'next-auth/react';
 import { Search, ShoppingBag, User, Menu, X, Heart } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -30,14 +30,19 @@ export function Header() {
   }, [checkAuth]);
 
   const handleLogout = async () => {
-    if (session) {
-      // Sign out from NextAuth
-      await signOut({ redirect: false });
-      router.push('/');
-    } else {
-      // Use existing logout
+    try {
+      // Use the store's logout to clear NextAuth session, backend session, and local state
       await logout();
-      router.push('/');
+    } catch (e) {
+      console.error('Logout failed', e);
+    } finally {
+      // Force a full page reload to ensure all client state is reset
+      if (typeof window !== 'undefined') {
+        window.location.href = '/';
+      } else {
+        router.replace('/');
+        router.refresh();
+      }
     }
   };
 

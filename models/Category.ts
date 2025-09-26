@@ -41,9 +41,13 @@ const CategorySchema = new Schema<ICategoryDocument>(
       type: String,
       validate: {
         validator: function (v: string) {
-          return !v || /^https?:\/\/.+\.(jpg|jpeg|png|gif|webp)$/i.test(v);
+          if (!v) return true;
+          const isHttpUrl = /^https?:\/\/[^\s]+\.(jpg|jpeg|png|gif|webp|avif|svg)$/i.test(v);
+          const isDataUrl = /^data:image\/(png|jpeg|jpg|gif|webp|avif|svg\+xml);base64,[A-Za-z0-9+/=]+$/i.test(v);
+          const isRelativePath = /^\/?(uploads|images|img|assets)\/[^\s?#]+(\.(jpg|jpeg|png|gif|webp|avif|svg))?$/i.test(v);
+          return isHttpUrl || isDataUrl || isRelativePath;
         },
-        message: 'Image must be a valid image URL',
+        message: 'Image must be a valid image URL or relative path',
       },
     },
     icon: {
