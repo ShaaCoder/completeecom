@@ -149,7 +149,12 @@ export function middleware(request: NextRequest) {
       pathname.startsWith('/api/search')
     ) {
       limitKey = `search_${clientKey}`;
-      maxRequests = 100;
+      if (!isProduction) {
+        // Relax limits in development to avoid noisy warnings during product listing/search
+        maxRequests = 5000; // effectively disable in dev
+      } else {
+        maxRequests = 100;
+      }
     } else if (pathname.startsWith('/api/upload')) {
       limitKey = `upload_${clientKey}`;
       maxRequests = 20;

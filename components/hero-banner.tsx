@@ -77,6 +77,8 @@ export function HeroBanner() {
                 src="https://images.pexels.com/photos/3762879/pexels-photo-3762879.jpeg"
                 alt="Beauty Products"
                 fill
+                priority
+                sizes="(max-width: 1024px) 100vw, 50vw"
                 className="object-cover rounded-2xl shadow-2xl"
               />
               

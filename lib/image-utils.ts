@@ -43,9 +43,17 @@ export function generateUniqueFileName(originalName: string): string {
 
 export function getImageUrl(imagePath: string): string {
   if (!imagePath) return '/placeholder-image.svg';
+
+  // Rewrite Pexels page URLs to direct CDN image URLs
+  // Example: https://www.pexels.com/photo/...-991509/ -> https://images.pexels.com/photos/991509/pexels-photo-991509.jpeg
+  const pexelsPageMatch = imagePath.match(/^https?:\/\/www\.pexels\.com\/photo\/[^/]*-(\d+)\/?$/i);
+  if (pexelsPageMatch && pexelsPageMatch[1]) {
+    const id = pexelsPageMatch[1];
+    return `https://images.pexels.com/photos/${id}/pexels-photo-${id}.jpeg`;
+  }
   
   // If it's already a full URL (http/https), return as is
-  if (/^https?:\/\/.+/i.test(imagePath)) {
+  if (/^https?:\/\//i.test(imagePath)) {
     return imagePath;
   }
   

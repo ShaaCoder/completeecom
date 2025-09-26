@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { useCategories } from '@/hooks/use-categories';
+import { getImageUrl } from '@/lib/image-utils';
 
 const categoryImages = {
   'makeup': 'https://images.pexels.com/photos/2113855/pexels-photo-2113855.jpeg',
@@ -72,10 +73,17 @@ export function CategoryShowcase() {
               <div className="text-center">
                 <div className="relative aspect-square mb-4 overflow-hidden rounded-full bg-gradient-to-br from-rose-100 to-pink-100">
                   <Image
-                    src={category.image || categoryImages[category.slug as keyof typeof categoryImages] || '/placeholder-category.jpg'}
+                    src={getImageUrl(
+                      category.image || (categoryImages[category.slug as keyof typeof categoryImages] as string) || '/placeholder-image.svg'
+                    )}
                     alt={category.name}
                     fill
+                    sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 20vw"
                     className="object-cover group-hover:scale-110 transition-transform duration-300"
+                    onError={(e) => {
+                      const target = e.target as HTMLImageElement;
+                      target.src = '/placeholder-image.svg';
+                    }}
                   />
                 </div>
                 <h3 className="font-semibold text-gray-900 group-hover:text-rose-600 transition-colors">

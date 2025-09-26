@@ -401,6 +401,14 @@ export function rateLimit(
   maxRequests = 100,
   windowMs = 60000
 ): { allowed: boolean; remaining: number; resetTime: number } {
+  // In development, disable rate limiting to avoid noisy warnings and unblock local testing
+  if (process.env.NODE_ENV !== 'production') {
+    return {
+      allowed: true,
+      remaining: Number.MAX_SAFE_INTEGER,
+      resetTime: Date.now() + windowMs
+    };
+  }
   const now = Date.now();
 
   // Clean old entries

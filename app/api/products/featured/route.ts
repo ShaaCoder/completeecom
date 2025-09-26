@@ -29,6 +29,23 @@ export async function GET(request: NextRequest) {
     // Ensure Category model is registered
     Category;
 
+    // Helper to normalize and validate image URLs; replaces missing local files with placeholder
+    const path = await import('path');
+    const fs = await import('fs');
+    const publicDir = path.join(process.cwd(), 'public');
+
+    const resolveImageUrl = (imagePath: string): string => {
+      if (!imagePath) return '/placeholder-image.svg';
+      if (/^https?:\/\//i.test(imagePath)) return imagePath; // external URL
+      let rel = imagePath.startsWith('/') ? imagePath.slice(1) : imagePath;
+      if (rel.startsWith('uploads/')) {
+        const abs = path.join(publicDir, rel);
+        try { if (fs.existsSync(abs)) return '/' + rel; } catch (_) {}
+        return '/placeholder-image.svg';
+      }
+      return '/' + rel;
+    };
+
     // Rate limiting
     const clientIP = getClientIP(request);
     const rateLimitResult = rateLimit(`featured_products_get_${clientIP}`, 100, 60000);
@@ -70,13 +87,13 @@ export async function GET(request: NextRequest) {
       price: product.price,
       originalPrice: product.originalPrice,
       description: product.description,
-      images: product.images,
+      images: Array.isArray(product.images) ? product.images.map((img: string) => resolveImageUrl(img)) : [],
       category: product.category && typeof product.category === 'object' && '_id' in product.category && 'name' in product.category ? {
         id: String(product.category._id),
         name: (product.category as any).name,
         slug: (product.category as any).slug,
         description: (product.category as any).description,
-        image: (product.category as any).image
+        image: resolveImageUrl((product.category as any).image || '')
       } : typeof product.category === 'object' && '_id' in product.category ? String(product.category._id) : product.category,
       subcategory: product.subcategory,
       brand: product.brand,

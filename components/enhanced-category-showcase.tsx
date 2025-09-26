@@ -6,6 +6,7 @@ import { useState, useEffect } from 'react';
 import { useCategories } from '@/hooks/use-categories';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
+import { getImageUrl } from '@/lib/image-utils';
 
 interface CategoryStats {
   totalProducts: number;
@@ -178,7 +179,7 @@ function CategoryCard({ category, featured = false }: { category: any; featured?
                 </div>
               )}
               <Image
-                src={category.image}
+                src={getImageUrl(category.image)}
                 alt={category.name}
                 fill
                 className={`

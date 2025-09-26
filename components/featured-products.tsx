@@ -3,7 +3,7 @@
 import { useFeaturedProducts, useProducts } from '@/hooks/use-products';
 import { ProductCard } from '@/components/product-card';
 
-export function FeaturedProducts() {
+export default function FeaturedProducts() {
   const { products: featuredProducts, loading: featuredLoading, error: featuredError } = useFeaturedProducts();
   const { products: recentProducts, loading: recentLoading, error: recentError } = useProducts({ limit: 8 });
   

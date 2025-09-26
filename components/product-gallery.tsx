@@ -20,6 +20,7 @@ export function ProductGallery({ images, alt }: ProductGalleryProps) {
           src={getImageUrl(images[selectedImage])}
           alt={alt}
           fill
+          sizes="(max-width: 1024px) 100vw, 50vw"
           className="object-cover"
           priority
           onError={(e) => {
@@ -46,6 +47,7 @@ export function ProductGallery({ images, alt }: ProductGalleryProps) {
                 src={getImageUrl(image)}
                 alt={`${alt} ${index + 1}`}
                 fill
+                sizes="80px"
                 className="object-cover"
                 onError={(e) => {
                   const target = e.target as HTMLImageElement;
