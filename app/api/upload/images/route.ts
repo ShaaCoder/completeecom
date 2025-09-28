@@ -9,6 +9,7 @@ import {
   DEFAULT_OPTIMIZATION_OPTIONS,
   type OptimizedImageResult 
 } from '@/lib/image-optimizer';
+import { uploadWithFallback, getStorageProvider } from '@/lib/cloud-storage';
 
 // Configure API route for handling large uploads
 export const runtime = 'nodejs';
@@ -57,10 +58,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Ensure upload directory exists
-    const uploadDir = path.join(process.cwd(), 'public', 'uploads', uploadType);
-    if (!existsSync(uploadDir)) {
-      await mkdir(uploadDir, { recursive: true });
+    // Check if we're in a serverless environment
+    const isServerless = process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME || process.env.FUNCTION_NAME;
+    
+    let uploadDir = '';
+    if (!isServerless) {
+      // Local development - ensure upload directory exists
+      uploadDir = path.join(process.cwd(), 'public', 'uploads', uploadType);
+      if (!existsSync(uploadDir)) {
+        await mkdir(uploadDir, { recursive: true });
+      }
     }
     
     // Get optimization options based on level
@@ -105,13 +112,38 @@ export async function POST(request: NextRequest) {
     for (const imageSet of optimizedResults) {
       const savePromise = Promise.all(
         imageSet.map(async (optimizedImage: OptimizedImageResult) => {
-          const filePath = path.join(uploadDir, optimizedImage.filename);
-          await writeFile(filePath, new Uint8Array(optimizedImage.buffer));
+          let imagePath: string;
           
-          const relativePath = `uploads/${uploadType}/${optimizedImage.filename}`.replace(/\\/g, '/');
+          if (isServerless) {
+            // Serverless environment - use cloud storage fallback
+            try {
+              // Create a temporary file-like object for cloud storage
+              const uint8Array = new Uint8Array(optimizedImage.buffer);
+              const fileBlob = new File([uint8Array], optimizedImage.filename, {
+                type: `image/${optimizedImage.format}`
+              });
+              
+              imagePath = await uploadWithFallback(
+                fileBlob,
+                uploadType,
+                async () => {
+                  throw new Error('Local storage not available in serverless');
+                }
+              );
+            } catch (error) {
+              console.error(`Failed to upload ${optimizedImage.filename}:`, error);
+              throw error;
+            }
+          } else {
+            // Local development - save to file system
+            const filePath = path.join(uploadDir, optimizedImage.filename);
+            await writeFile(filePath, new Uint8Array(optimizedImage.buffer));
+            imagePath = `uploads/${uploadType}/${optimizedImage.filename}`.replace(/\\/g, '/');
+          }
+          
           console.log(`💾 Saved: ${optimizedImage.filename} (${Math.round(optimizedImage.size / 1024)}KB, ${optimizedImage.width}x${optimizedImage.height})`);
           
-          return relativePath;
+          return imagePath;
         })
       );
       

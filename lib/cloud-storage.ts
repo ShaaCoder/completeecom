@@ -58,7 +58,9 @@ export class CloudinaryProvider implements CloudStorageProvider {
  * Get the appropriate storage provider based on environment
  */
 export function getStorageProvider(): CloudStorageProvider {
-  const provider = process.env.STORAGE_PROVIDER || 'local';
+  // In serverless environments, default to base64 storage as emergency fallback
+  const isServerless = process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME || process.env.FUNCTION_NAME;
+  const provider = process.env.STORAGE_PROVIDER || (isServerless ? 'base64' : 'local');
   
   switch (provider) {
     case 'base64':
@@ -70,6 +72,10 @@ export function getStorageProvider(): CloudStorageProvider {
         process.env.CLOUDINARY_API_SECRET || ''
       );
     default:
+      if (isServerless) {
+        console.warn('No cloud storage provider configured, falling back to base64');
+        return new Base64StorageProvider();
+      }
       throw new Error(`Unknown storage provider: ${provider}`);
   }
 }
