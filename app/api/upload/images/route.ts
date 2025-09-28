@@ -106,7 +106,7 @@ export async function POST(request: NextRequest) {
       const savePromise = Promise.all(
         imageSet.map(async (optimizedImage: OptimizedImageResult) => {
           const filePath = path.join(uploadDir, optimizedImage.filename);
-          await writeFile(filePath, optimizedImage.buffer);
+          await writeFile(filePath, new Uint8Array(optimizedImage.buffer));
           
           const relativePath = `uploads/${uploadType}/${optimizedImage.filename}`.replace(/\\/g, '/');
           console.log(`💾 Saved: ${optimizedImage.filename} (${Math.round(optimizedImage.size / 1024)}KB, ${optimizedImage.width}x${optimizedImage.height})`);
@@ -158,7 +158,7 @@ export async function POST(request: NextRequest) {
         error: 'Image upload failed',
         message: errorMessage,
         processingTime: totalTime,
-        details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+        details: process.env.NODE_ENV === 'development' ? (error instanceof Error ? error.stack : String(error)) : undefined
       },
       { status: 500 }
     );

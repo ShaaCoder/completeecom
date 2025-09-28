@@ -86,7 +86,7 @@ export async function uploadWithFallback(
     // Try primary upload method (local storage)
     return await primaryUploadFn();
   } catch (error) {
-    console.warn('Primary upload failed, trying fallback:', error.message);
+    console.warn('Primary upload failed, trying fallback:', error instanceof Error ? error.message : String(error));
     
     // Fallback to cloud storage
     const cloudProvider = getStorageProvider();

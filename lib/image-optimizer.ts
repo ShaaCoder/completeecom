@@ -74,7 +74,7 @@ export async function optimizeImage(
     return results;
   } catch (error) {
     console.error('Image optimization failed:', error);
-    throw new Error(`Failed to optimize image ${filename}: ${error.message}`);
+    throw new Error(`Failed to optimize image ${filename}: ${error instanceof Error ? error.message : String(error)}`);
   }
 }
 
@@ -102,8 +102,7 @@ async function createOptimizedVersion(
     case 'webp':
       image.webp({ 
         quality,
-        effort: 4, // Balance between compression and speed
-        progressive 
+        effort: 4 // Balance between compression and speed
       });
       break;
     case 'jpeg':
@@ -200,7 +199,7 @@ export async function validateImage(buffer: Buffer): Promise<{
     return {
       isValid: false,
       size: buffer.length,
-      error: error.message
+      error: error instanceof Error ? error.message : String(error)
     };
   }
 }
