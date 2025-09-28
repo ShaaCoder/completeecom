@@ -110,15 +110,18 @@ export function ImageUpload({
 
     setUploading(true);
     setError(null);
+    const startTime = Date.now();
 
     try {
       const formData = new FormData();
       files.forEach(file => formData.append('images', file));
       formData.append('type', uploadType);
+      formData.append('optimization', 'balanced'); // Use balanced optimization for good speed/quality
 
+      // Use fetch with progress simulation for better UX
       const xhr = new XMLHttpRequest();
 
-      // Track upload progress
+      // Enhanced progress tracking
       xhr.upload.onprogress = (event) => {
         if (event.lengthComputable) {
           const progress = {
@@ -132,29 +135,39 @@ export function ImageUpload({
 
       const response = await new Promise<Response>((resolve, reject) => {
         xhr.onload = () => {
-          if (xhr.status === 200) {
+          if (xhr.status === 200 || xhr.status === 201) {
             resolve(new Response(xhr.response));
           } else {
-            reject(new Error(`Upload failed with status ${xhr.status}`));
+            reject(new Error(`Upload failed with status ${xhr.status}: ${xhr.statusText}`));
           }
         };
-        xhr.onerror = () => reject(new Error('Upload failed'));
+        xhr.onerror = () => reject(new Error('Network error during upload'));
+        xhr.ontimeout = () => reject(new Error('Upload timeout'));
+        xhr.timeout = 60000; // 60 second timeout
         xhr.open('POST', '/api/upload/images');
         xhr.send(formData);
       });
 
       const result = await response.json();
+      const totalTime = Date.now() - startTime;
 
       if (result.success) {
-        // Add uploaded images to existing ones
-        const newImages = [...value, ...result.images];
+        // Show success message with stats
+        console.log(`✨ Upload completed in ${totalTime}ms:`, result.stats);
+        
+        // Add uploaded images to existing ones - use only main optimized images for display
+        const mainImages = result.images.filter((img: string) => 
+          !img.includes('_thumb') && !img.includes('_medium') && !img.includes('_large')
+        );
+        const newImages = [...value, ...mainImages];
         onChange(newImages);
         setFiles([]); // Clear selected files
         setUploadProgress({ loaded: 0, total: 0, percentage: 0 });
       } else {
-        throw new Error(result.error || 'Upload failed');
+        throw new Error(result.message || result.error || 'Upload failed');
       }
     } catch (err) {
+      console.error('😱 Upload error:', err);
       setError(err instanceof Error ? err.message : 'Upload failed');
     } finally {
       setUploading(false);

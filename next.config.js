@@ -126,17 +126,39 @@ const nextConfig = {
           }
         ],
       },
-      // Static assets caching
+      // Optimized static assets caching with WebP support
       {
         source: '/uploads/(.*)',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, max-age=31536000, immutable, stale-while-revalidate=86400'
+          },
+          {
+            key: 'X-Content-Type-Options',
+            value: 'nosniff'
+          },
+          {
+            key: 'Vary',
+            value: 'Accept'
+          },
+          {
+            key: 'X-Optimized-Images',
+            value: 'true'
+          }
+        ],
+      },
+      // WebP image serving optimization
+      {
+        source: '/uploads/(.*)\\.webp',
         headers: [
           {
             key: 'Cache-Control',
             value: 'public, max-age=31536000, immutable'
           },
           {
-            key: 'X-Content-Type-Options',
-            value: 'nosniff'
+            key: 'Content-Type',
+            value: 'image/webp'
           }
         ],
       }
