@@ -105,7 +105,7 @@ export async function GET(
     // Generate breadcrumb data
     const breadcrumbs = [
       { name: 'Home', url: '/' },
-      { name: 'Categories', url: '/categories' }
+      { name: 'Categories', url: '/category' }
     ];
 
     // Add parent category to breadcrumb if available
@@ -119,7 +119,7 @@ export async function GET(
     // Add current category to breadcrumb
     breadcrumbs.push({
       name: category.name,
-      url: `/categories/${category.slug}`
+      url: `/category/${category.slug}`
     });
 
     // Format enhanced category response
@@ -151,8 +151,11 @@ export async function GET(
       ],
       
       // SEO enhancement data
-      canonicalUrl: `/categories/${category.slug}`,
-      breadcrumbs: breadcrumbs,
+      canonicalUrl: `/category/${category.slug}`,
+      breadcrumbs: breadcrumbs.map(crumb => ({
+        ...crumb,
+        url: crumb.url.replace(/^\/categories\b/, '/category')
+      })),
       
       // Featured products from this category
       featuredProducts: featuredProducts.map(product => ({
@@ -185,7 +188,7 @@ export async function GET(
           title: category.seoTitle || `${category.name} - Premium Beauty Products`,
           description: category.seoDescription || `Shop premium ${category.name.toLowerCase()} products at BeautyMart. ${productCount} products available.`,
           image: category.image || '',
-          url: `/categories/${category.slug}`,
+          url: `/category/${category.slug}`,
           type: 'website'
         },
         twitter: {

@@ -110,8 +110,8 @@ export function generateCategoryMetadata(
 
   const slug = generateSlug(subcategory || category);
   const url = subcategory 
-    ? generateCanonicalUrl(`/categories/${generateSlug(category)}/${slug}`)
-    : generateCanonicalUrl(`/categories/${slug}`);
+    ? generateCanonicalUrl(`/category/${generateSlug(category)}/${slug}`)
+    : generateCanonicalUrl(`/category/${slug}`);
 
   return {
     title,

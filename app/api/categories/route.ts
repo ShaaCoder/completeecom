@@ -122,11 +122,11 @@ export async function GET(request: NextRequest) {
       ],
       
       // SEO-friendly URL path
-      canonicalUrl: `/categories/${category.slug}`,
+      canonicalUrl: `/category/${category.slug}`,
       breadcrumbs: [
         { name: 'Home', url: '/' },
-        { name: 'Categories', url: '/categories' },
-        { name: category.name, url: `/categories/${category.slug}` }
+        { name: 'Categories', url: '/category' },
+        { name: category.name, url: `/category/${category.slug}` }
       ]
     }));
 
@@ -225,11 +225,11 @@ export async function POST(request: NextRequest) {
         seoKeywords: newCategory.seoKeywords,
         
         // SEO-friendly URL path
-        canonicalUrl: `/categories/${newCategory.slug}`,
+        canonicalUrl: `/category/${newCategory.slug}`,
         breadcrumbs: [
           { name: 'Home', url: '/' },
-          { name: 'Categories', url: '/categories' },
-          { name: newCategory.name, url: `/categories/${newCategory.slug}` }
+          { name: 'Categories', url: '/category' },
+          { name: newCategory.name, url: `/category/${newCategory.slug}` }
         ]
       };
 
